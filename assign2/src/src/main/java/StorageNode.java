@@ -2,13 +2,17 @@ import java.rmi.registry.Registry;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
+import java.util.concurrent.*;
 
 public class StorageNode implements Functions, KeyValue {
 
     StorageNode(){}
+    static ScheduledExecutorService scheduledExecutorService;
 
     public static void main(String[] args) {
         try{
+            scheduledExecutorService =
+                    Executors.newScheduledThreadPool(5);
             StorageNode obj = new StorageNode();
             Functions functionsStub = (Functions) UnicastRemoteObject.exportObject(obj,0);
 
@@ -40,8 +44,9 @@ public class StorageNode implements Functions, KeyValue {
     }
 
     @Override
-    public String get(int key) throws RemoteException {
-        return "get not implemented yet";
+    public String get(int key) throws RemoteException, ExecutionException, InterruptedException {
+        ScheduledFuture scheduledFuture = scheduledExecutorService.schedule(new Getter(),0, TimeUnit.SECONDS);
+        return scheduledFuture.get().toString();
     }
 
     @Override
