@@ -8,7 +8,7 @@ public class Client {
         try {
             Registry registry = LocateRegistry.getRegistry();
             Functions functionsStub = (Functions) registry.lookup(Constants.REG_FUNC_VAL);
-            String response = functionsStub.get(1);
+            String response = functionsStub.join();
             System.out.println("response: " + response);
         } catch (Exception e) {
             System.err.println("Client exception: " + e);
