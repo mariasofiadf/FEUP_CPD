@@ -1,10 +1,11 @@
+import java.rmi.Remote;
 import java.rmi.registry.Registry;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.concurrent.*;
 
-public class StorageNode implements Functions, KeyValue {
+public class StorageNode implements Functions, Remote {
 
     StorageNode(){}
     static ScheduledExecutorService scheduledExecutorService;
