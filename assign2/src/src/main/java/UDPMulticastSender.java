@@ -4,10 +4,10 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.concurrent.Callable;
 
-public class UDPMulticastServer implements Callable {
+public class UDPMulticastSender implements Callable {
 
         String msg;
-    public UDPMulticastServer(String msg) {
+    public UDPMulticastSender(String msg) {
             this.msg = msg;
     }
     public static void sendUDPMessage(String message,
