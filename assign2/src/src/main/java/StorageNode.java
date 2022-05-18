@@ -14,10 +14,10 @@ public class StorageNode implements Functions, Remote {
     static ScheduledExecutorService scheduledExecutorService;
 
     // <key, path>
-    static ConcurrentHashMap<Integer, String> keyPathMap = new ConcurrentHashMap<Integer, String>();
+    static ConcurrentHashMap<Integer, String> keyPathMap = new ConcurrentHashMap<>();
 
     //hashed ids
-    static List<Integer> nodeIds = new ArrayList<Integer>();
+    static List<Integer> nodeIds = new ArrayList<>();
     
 
     public static void main(String[] args) {
@@ -46,6 +46,7 @@ public class StorageNode implements Functions, Remote {
         ScheduledFuture scheduledFuture = scheduledExecutorService.schedule(new UDPMulticastServer("JOIN"),0, TimeUnit.SECONDS);
         return scheduledFuture.get().toString();
     }
+
 
     @Override
     public String leave() throws RemoteException {
