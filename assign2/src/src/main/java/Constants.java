@@ -5,4 +5,12 @@ public final class Constants {
     }
 
     public static final String REG_FUNC_VAL = "Functions";
+    public static final String ACTION = "action";
+
+    public static final String JOIN = "join";
+
+    public static final String ID = "id";
+
+    public static final String COUNTER = "counter";
+    public static final Integer MAX_THREADS = 10;
 }
