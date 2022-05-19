@@ -6,16 +6,16 @@ public class Message {
     public String assembleMsg(Map<String,String>map){
         StringBuilder msg = new StringBuilder();
         map.forEach((k,v) ->{
-
             if(k.equalsIgnoreCase("body")){
                 msg.append("\n\n");
                 msg.append(v);
             }
             else{
-                msg.append(k + " " + v + "\n");
+                msg.append(k).append(" ").append(v).append("\n");
             }
         }
         );
+
         return msg.toString();
     }
 
@@ -40,7 +40,7 @@ public class Message {
             String line = scanner.nextLine();
             body.append(line).append("\n");
         }
-        map.put("body", body.toString());
+        map.put(Constants.BODY, body.toString());
         scanner.close();
         return  map;
     }

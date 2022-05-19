@@ -4,6 +4,7 @@ import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
 
 import static java.lang.Integer.parseInt;
 
@@ -14,41 +15,24 @@ public class UDPMulticastReceiver implements Callable {
         this.node = node;
     }
 
-    public void process(String msg){
-        Message message = new Message();
-        Map<String, String> map;
-        try {
-            map = message.disassembleMsb(msg);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-        switch (map.get(Constants.ACTION)) {
-            case Constants.JOIN -> node.addMembershipEntry(map.get(Constants.ID), parseInt(map.get(Constants.COUNTER)));
-            default -> {
-            }
-        }
-
-    }
-
     public void receiveUDPMessage(String ip, int port) throws IOException {
         byte[] buffer = new byte[1024];
         MulticastSocket socket = new MulticastSocket(4321);
         InetAddress group = InetAddress.getByName("230.0.0.0");
         socket.joinGroup(group);
-        while (true) {
-            System.out.println("Waiting for multicast message...");
-            DatagramPacket packet = new DatagramPacket(buffer,
-                    buffer.length);
+        System.out.println("[Mcast Receiver] Listening for multicast messages...");
+        while (node.inGroup) {
+            DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
             socket.receive(packet);
-            String msg = new String(packet.getData(),
-                    packet.getOffset(), packet.getLength());
-            System.out.println("[Multicast UDP message received] " + msg);
-            process(msg);
-            if ("OK".equals(msg)) {
+            String msg = new String(packet.getData(), packet.getOffset(), packet.getLength());
+
+            node.ses.schedule(new MsgProcessor(node, msg), 0, TimeUnit.SECONDS); // Schedule
+            if ("OK".equals(msg)) { //TODO: Remove this when shutdown is implemented
                 System.out.println("No more message. Exiting : " + msg);
                 break;
             }
         }
+        System.out.println("[Mcast Receiver] Stopped listening for multicast messages.");
         socket.leaveGroup(group);
         socket.close();
     }
