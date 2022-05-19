@@ -33,50 +33,48 @@ public class StorageNode implements Functions, Remote {
 
     //hashed ids
     SortedMap<String, Integer> membershipLog;
-    
 
     public static void main(String[] args) {
         try{
+            System.out.println("\n[Main] Node ready");
             StorageNode node = new StorageNode(Executors.newScheduledThreadPool(Constants.MAX_THREADS),
             new ConcurrentHashMap<>(), new TreeMap<>());
 
             node.ses.schedule(new UDPMulticastReceiver(node), 0, TimeUnit.SECONDS);
+            node.ses.schedule(new UDPMulticastSender(node, Constants.MEMBERSHIP), 5, TimeUnit.SECONDS);
             Functions functionsStub = (Functions) UnicastRemoteObject.exportObject(node,0);
 
             Registry registry = LocateRegistry.getRegistry();
 
             //Unbind previous remote object's stub in the registry
             registry.rebind(Constants.REG_FUNC_VAL, functionsStub);
-            System.out.println("Node ready");
-   
+
+            node.join();
+
         }catch(Exception e){
-            System.err.println("Server exception: " + e);
+            System.err.println("\n[Main] Server exception: " + e);
             e.printStackTrace();
         }
     }
 
     @Override
     public String join() throws RemoteException, InterruptedException, ExecutionException {
-        Message message = new Message();
-        Map<String, String> map = new HashMap<>();
-        map.put("action", Constants.JOIN);
-        map.put("id", id);
-        map.put("counter", valueOf(counter));
-        String msg = message.assembleMsg(map);
-        ScheduledFuture scheduledFuture = ses.schedule(new UDPMulticastSender(msg),0, TimeUnit.SECONDS);
+        //UDPMulticastSender knows how to assemble join msg
+        ScheduledFuture scheduledFuture = ses.schedule(new UDPMulticastSender(this, Constants.JOIN),0, TimeUnit.SECONDS);
         return scheduledFuture.get().toString();
     }
 
 
     @Override
-    public String leave() throws RemoteException {
-        return "leave not implemented yet";
+    public String leave() throws RemoteException, ExecutionException, InterruptedException {
+        //UDPMulticastSender knows how to assemble leave msg
+        ScheduledFuture scheduledFuture = ses.schedule(new UDPMulticastSender(this, Constants.LEAVE),0, TimeUnit.SECONDS);
+        return scheduledFuture.get().toString();
     }
 
 
     @Override
     public String put(int key, byte[] value) throws RemoteException {
-
         return "put not implemented yet";
     }
 
@@ -96,8 +94,11 @@ public class StorageNode implements Functions, Remote {
             membershipLog.replace(id, counter);
         else
             membershipLog.put(id, counter);
-        System.out.println("Added membership entry\nUpdated log (" + membershipLog.size() + "):");
-        membershipLog.forEach((k,v)-> System.out.println("Id: " + k.substring(0,6) + " | Counter: " + v));
-        //membershipLog.put(id,counter);
+        System.out.println("\n[MsgProcessor] Added membership entry. Updated log (" + membershipLog.size() + " members):");
+        membershipLog.forEach((k,v)-> System.out.println("[MsgProcessor] Id: " + k.substring(0,6) + " | Counter: " + v));
+    }
+
+    public void membership(){
+
     }
 }
