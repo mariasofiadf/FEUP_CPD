@@ -21,7 +21,7 @@ public class UDPMulticastReceiver implements Callable {
         InetAddress group = InetAddress.getByName("230.0.0.0");
         socket.joinGroup(group);
         System.out.println("[Mcast Receiver] Listening for multicast messages...");
-        while (true) {
+        while (node.inGroup) {
             DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
             socket.receive(packet);
             String msg = new String(packet.getData(), packet.getOffset(), packet.getLength());
@@ -32,6 +32,7 @@ public class UDPMulticastReceiver implements Callable {
                 break;
             }
         }
+        System.out.println("[Mcast Receiver] Stopped listening for multicast messages.");
         socket.leaveGroup(group);
         socket.close();
     }

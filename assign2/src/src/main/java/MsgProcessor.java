@@ -19,9 +19,15 @@ public class MsgProcessor implements Callable {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        System.out.println("[Msg Processor] Received message of type " + map.get(Constants.ACTION));
+        System.out.println("[Msg Processor] Received " + map.get(Constants.ACTION));
         switch (map.get(Constants.ACTION)) {
-            case Constants.JOIN, Constants.LEAVE -> node.addMembershipEntry(map.get(Constants.ID), parseInt(map.get(Constants.COUNTER)));
+            case Constants.JOIN, Constants.LEAVE -> {
+                if(map.get(Constants.ID).equals(node.id)) return;
+                node.addMembershipEntry(map.get(Constants.ID), parseInt(map.get(Constants.COUNTER)));
+            }
+            case Constants.MEMBERSHIP -> map.forEach((k, v) -> {
+                if(!k.equalsIgnoreCase(Constants.ACTION) && !k.equalsIgnoreCase(Constants.BODY) && !k.equals(node.id)) node.addMembershipEntry(k,parseInt(v));
+            });
             default -> {
             }
         }

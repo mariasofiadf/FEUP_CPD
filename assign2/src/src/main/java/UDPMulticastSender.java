@@ -45,9 +45,18 @@ public class UDPMulticastSender implements Callable {
         Message message = new Message();
         Map<String, String> map = new HashMap<>();
         map.put("action", Constants.MEMBERSHIP);
+        int i = 0;
+        for( String key : node.membershipLog.keySet()){
+            map.put(key, node.membershipLog.get(key).toString());
+            i++;
+            if(i >= Constants.MAX_LOG) break;
+        }
+
         String msg = message.assembleMsg(map);
-        System.out.println("[Mcast Sender] Sending membership msg");
-        node.ses.schedule(new UDPMulticastSender(node, Constants.MEMBERSHIP), 5, TimeUnit.SECONDS);
+        System.out.println("[Mcast Sender] Sending membership msg" + map.size());
+        if(node.inGroup)
+            node.ses.schedule(new UDPMulticastSender(node, Constants.MEMBERSHIP), 5, TimeUnit.SECONDS);
+        else System.out.println("[Mcast Sender] Stopped sending membership msg");
         return msg;
     }
 
@@ -60,6 +69,7 @@ public class UDPMulticastSender implements Callable {
         map.put("counter", valueOf(node.counter));
         String msg = message.assembleMsg(map);
         System.out.println("[Mcast Sender] Sending join msg");
+        node.counter ++;
         return msg;
     }
 
@@ -73,6 +83,7 @@ public class UDPMulticastSender implements Callable {
         map.put("counter", valueOf(node.counter));
         String msg = message.assembleMsg(map);
         System.out.println("[Mcast Sender] Sending leave msg");
+        node.counter ++;
         return msg;
     }
 
