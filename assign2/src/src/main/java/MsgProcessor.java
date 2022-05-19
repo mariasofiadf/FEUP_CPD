@@ -19,7 +19,7 @@ public class MsgProcessor implements Callable {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        System.out.println("[MsgProcessor] Received message of type " + map.get(Constants.ACTION));
+        System.out.println("[Msg Processor] Received message of type " + map.get(Constants.ACTION));
         switch (map.get(Constants.ACTION)) {
             case Constants.JOIN, Constants.LEAVE -> node.addMembershipEntry(map.get(Constants.ID), parseInt(map.get(Constants.COUNTER)));
             default -> {
@@ -28,7 +28,7 @@ public class MsgProcessor implements Callable {
     }
 
     @Override
-    public Object call() throws Exception {
+    public Object call() {
         process(msg);
         return null;
     }

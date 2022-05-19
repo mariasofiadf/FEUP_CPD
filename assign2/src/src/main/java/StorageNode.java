@@ -94,7 +94,7 @@ public class StorageNode implements Functions, Remote {
             membershipLog.replace(id, counter);
         else
             membershipLog.put(id, counter);
-        System.out.println("\n[MsgProcessor] Added membership entry. Updated log (" + membershipLog.size() + " members):");
+        System.out.println("\n[Msg Processor] Added membership entry. Updated log (" + membershipLog.size() + " members):");
         membershipLog.forEach((k,v)-> System.out.println("[MsgProcessor] Id: " + k.substring(0,6) + " | Counter: " + v));
     }
 

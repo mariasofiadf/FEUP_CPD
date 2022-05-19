@@ -46,33 +46,33 @@ public class UDPMulticastSender implements Callable {
         Map<String, String> map = new HashMap<>();
         map.put("action", Constants.MEMBERSHIP);
         String msg = message.assembleMsg(map);
-        System.out.println("[Mcast Sender Thread] Sending membership msg");
+        System.out.println("[Mcast Sender] Sending membership msg");
         node.ses.schedule(new UDPMulticastSender(node, Constants.MEMBERSHIP), 5, TimeUnit.SECONDS);
         return msg;
     }
 
     //Assembles join msg
-    public String join() throws RemoteException, InterruptedException, ExecutionException {
+    public String join() {
         Message message = new Message();
         Map<String, String> map = new HashMap<>();
         map.put("action", Constants.JOIN);
         map.put("id", node.id);
         map.put("counter", valueOf(node.counter));
         String msg = message.assembleMsg(map);
-        System.out.println("[Mcast Sender Thread] Sending join msg");
+        System.out.println("[Mcast Sender] Sending join msg");
         return msg;
     }
 
     //TODO: maybe refactor this since join() and leave() are very similar
     //Assembles leave msg
-    public String leave() throws RemoteException, InterruptedException, ExecutionException {
+    public String leave() {
         Message message = new Message();
         Map<String, String> map = new HashMap<>();
         map.put("action", Constants.LEAVE);
         map.put("id", node.id);
         map.put("counter", valueOf(node.counter));
         String msg = message.assembleMsg(map);
-        System.out.println("[Mcast Sender Thread] Sending leave msg");
+        System.out.println("[Mcast Sender] Sending leave msg");
         return msg;
     }
 
