@@ -37,7 +37,7 @@ public class UDPMulticastSender implements Callable {
             case Constants.LEAVE -> content = leave();
             case Constants.MEMBERSHIP -> content = membership();
         }
-        sendUDPMessage(content, "230.0.0.0", 4321);
+        sendUDPMessage(content, node.IP_mcast_addr, node.IP_mcast_port);
         return "";
     }
 
@@ -53,7 +53,7 @@ public class UDPMulticastSender implements Callable {
         }
 
         String msg = message.assembleMsg(map);
-        System.out.println("[Mcast Sender] Sending membership msg" + map.size());
+        System.out.println("[Mcast Sender] Sending membership msg to " + node.IP_mcast_addr + ":" + node.IP_mcast_port);
         if(node.inGroup)
             node.ses.schedule(new UDPMulticastSender(node, Constants.MEMBERSHIP), 5, TimeUnit.SECONDS);
         else System.out.println("[Mcast Sender] Stopped sending membership msg");
@@ -68,7 +68,7 @@ public class UDPMulticastSender implements Callable {
         map.put("id", node.id);
         map.put("counter", valueOf(node.counter));
         String msg = message.assembleMsg(map);
-        System.out.println("[Mcast Sender] Sending join msg");
+        System.out.println("[Mcast Sender] Sending join msg to "  + node.IP_mcast_addr + ":" + node.IP_mcast_port);
         node.counter ++;
         return msg;
     }
@@ -82,7 +82,7 @@ public class UDPMulticastSender implements Callable {
         map.put("id", node.id);
         map.put("counter", valueOf(node.counter));
         String msg = message.assembleMsg(map);
-        System.out.println("[Mcast Sender] Sending leave msg");
+        System.out.println("[Mcast Sender] Sending leave msg to "  + node.IP_mcast_addr + ":" + node.IP_mcast_port);
         node.counter ++;
         return msg;
     }

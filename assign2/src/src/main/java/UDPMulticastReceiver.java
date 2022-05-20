@@ -17,10 +17,10 @@ public class UDPMulticastReceiver implements Callable {
 
     public void receiveUDPMessage(String ip, int port) throws IOException {
         byte[] buffer = new byte[1024];
-        MulticastSocket socket = new MulticastSocket(4321);
-        InetAddress group = InetAddress.getByName("230.0.0.0");
+        MulticastSocket socket = new MulticastSocket(port);
+        InetAddress group = InetAddress.getByName(ip);
         socket.joinGroup(group);
-        System.out.println("[Mcast Receiver] Listening for multicast messages...");
+        System.out.println("[Mcast Receiver] Listening for multicast messages... on " + ip + ":" + port);
         while (node.inGroup) {
             DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
             socket.receive(packet);
@@ -40,7 +40,7 @@ public class UDPMulticastReceiver implements Callable {
     @Override
     public Object call() {
         try {
-            receiveUDPMessage("230.0.0.0", 4321);
+            receiveUDPMessage(node.IP_mcast_addr, node.IP_mcast_port);
         } catch (IOException ex) {
             ex.printStackTrace();
         }
