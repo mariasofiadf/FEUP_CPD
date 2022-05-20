@@ -1,3 +1,7 @@
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.Socket;
+import java.net.UnknownHostException;
 import java.rmi.Remote;
 import java.rmi.registry.Registry;
 import java.rmi.registry.LocateRegistry;
@@ -13,40 +17,60 @@ import static java.lang.String.valueOf;
 public class StorageNode implements Functions, Remote {
     int counter = 0;
     String id;
-
     boolean inGroup = false;
+    String IP_mcast_addr;
+    Integer IP_mcast_port;
+    Integer port;
 
     UDPMulticastReceiver mcastReceiver;
-    StorageNode(ScheduledExecutorService ses, ConcurrentHashMap<Integer, String> keyPathMap,SortedMap<String, Integer> membershipLog, List<String> members){
+    StorageNode(ScheduledExecutorService ses, ConcurrentHashMap<Integer, String> keyPathMap,
+                SortedMap<String, Integer> membershipLog, List<String> members,
+                String IP_mcast_addr, String IP_mcast_port, String id, String port) {
         this.ses = ses;
         this.keyPathMap = keyPathMap;
-        this.membershipLog = membershipLog;
-        this.members = members;
-        Long timestamp = System.currentTimeMillis();
+        this.membershipLog = membershipLog; //TODO: Initialize log from disk
+        this.members = members; //TODO Initialize members from disk
+        this.IP_mcast_addr = IP_mcast_addr;
+        this.IP_mcast_port = Integer.valueOf(IP_mcast_port);
+        this.port = Integer.valueOf(port);
         Hash hash = new Hash();
         try {
-            this.id = hash.hash(timestamp.toString());
+            this.id = hash.hash(id);
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
-        addMembershipEntry(id, counter);
+        addMembershipEntry(this.id, counter);
     }
     ScheduledExecutorService ses;
-
     // <key, path>
     ConcurrentHashMap<Integer, String> keyPathMap;
-
     //hashed ids
     SortedMap<String, Integer> membershipLog;
-
     List<String> members;
 
+    private static boolean available(int port) {
+        try (Socket ignored = new Socket("localhost", port)) {
+            return false;
+        } catch (IOException ignored) {
+            return true;
+        }
+    }
     public static void main(String[] args) {
-        try{
-            System.out.println("\n[Main] Node ready");
-            StorageNode node = new StorageNode(Executors.newScheduledThreadPool(Constants.MAX_THREADS),
-            new ConcurrentHashMap<>(), new TreeMap<>(), new ArrayList<>());
+        if(args.length != 4)
+        {
+            System.out.println("Wrong number of arguments for Node startup");
+            System.out.println("Usage:\njava -Djava.rmi.server.codebase=file:./ Store <IP_mcast_addr> <IP_mcast_port> <node_id>  <Store_port>");
+            return;
+        }
 
+        try{
+            StorageNode node = new StorageNode(Executors.newScheduledThreadPool(Constants.MAX_THREADS),
+            new ConcurrentHashMap<>(), new TreeMap<>(), new ArrayList<>(), args[0], args[1], args[2], args[3]);
+
+            System.out.println(String.format("[Main] Node initialized with IP_mcast_addr=%s IP_mcast_port=%d node_id=%s Store_port=%d",
+                    node.IP_mcast_addr, node.IP_mcast_port, node.id.substring(0,6), node.port));
+
+            ScheduledFuture scheduledFuture = node.ses.schedule(new UnicastReceiver(InetAddress.getLocalHost().getHostAddress(), node.port),0, TimeUnit.SECONDS);
             Functions functionsStub = (Functions) UnicastRemoteObject.exportObject(node,0);
 
             Registry registry = LocateRegistry.getRegistry();
@@ -99,7 +123,6 @@ public class StorageNode implements Functions, Remote {
         return scheduledFuture.get().toString();
     }
 
-
     @Override
     public String put(int key, byte[] value) throws RemoteException {
         return "put not implemented yet";
@@ -133,13 +156,13 @@ public class StorageNode implements Functions, Remote {
             members.remove(id);
             System.out.println("[Msg Processor] Removed member: " + id.substring(0,6));
         }
-
+        Collections.sort(members);
     }
 
     public void showMembers(){
         System.out.println("Members");
         for (String member : members) {
-            System.out.println("[Main] " + member);
+            System.out.println("[Main] " + member.substring(0,6));
         }
 
     }
