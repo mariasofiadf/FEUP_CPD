@@ -1,7 +1,7 @@
 import os
 import sys
 from time import sleep, time
-
+os.system('gradle build')
 os.system('cd build/classes/java/main/ && rmiregistry &')
 n = 4
 if(len(sys.argv)>1):
