@@ -77,16 +77,23 @@ public class StorageNode implements Functions, Remote {
             //Unbind previous remote object's stub in the registry
             registry.rebind(Constants.REG_FUNC_VAL, functionsStub);
 
-            int x[] = {1,4,6,10};
-            int i = node.binarySearch(x,0,4,3);
-            System.out.println("i: " + i);
-            i = node.binarySearch(x,0,4,5);
-            System.out.println("i: " + i);
-            i = node.binarySearch(x,0,4,9);
-            System.out.println("i: " + i);
-            i = node.binarySearch(x,0,4,500);
-            System.out.println("i: " + i);
-
+            List<String> ids = new ArrayList<>();
+            ids.add("a5");
+            ids.add("d6");
+            ids.add("h1");
+            ids.add("xb");
+            Collections.sort(ids);
+            System.out.println(ids);
+            String i = node.binarySearch(ids,0,ids.size(), "bb");
+            System.out.println("i " + i);
+            i = node.binarySearch(ids,0,ids.size(), "d5");
+            System.out.println("i " + i);
+            i = node.binarySearch(ids,0,ids.size(), "h0");
+            System.out.println("i " + i);
+            i = node.binarySearch(ids,0,ids.size(), "xx");
+            System.out.println("i " + i);
+            i = node.binarySearch(ids,0,ids.size(), "a0");
+            System.out.println("i " + i);
             //For debug purposes:
             Scanner scanner = new Scanner(System.in);
             char cmd; boolean stop = false;
@@ -183,23 +190,23 @@ public class StorageNode implements Functions, Remote {
         membershipLog.forEach((k,v)-> System.out.println("[Main] Id: " + k.substring(0,6) + " | Counter: " + v));
     }
 
-    int binarySearch(int arr[], int l, int r, int x)
+    String binarySearch(List<String> arr, int l, int r, String x)
     {
         if (r >= l) {
             int mid = l + (r - l) / 2;
 
-            if(mid >= arr.length)
-                return 0;
-            if(mid < 0)
-                return 1;
+            if(mid >= arr.size())
+                return arr.get(0);
+            if(mid <= 0)
+                return arr.get(1);
             // If the element is present at the
             // middle itself
-            if (arr[mid] > x  && arr[mid-1] < x){
-                return mid;
+            if (arr.get(mid).compareTo(x) > 0  && arr.get(mid-1).compareTo(x) < 0){
+                return arr.get(mid);
             }
             // If element is smaller than mid, then
             // it can only be present in left subarray
-            if (arr[mid] > x)
+            if (arr.get(mid).compareTo(x) > 0)
                 return binarySearch(arr, l, mid - 1, x);
 
             // Else the element can only be present
@@ -209,7 +216,7 @@ public class StorageNode implements Functions, Remote {
 
         // We reach here when element is not present
         // in array
-        return -1;
+        return "";
     }
 
     public void getResponsibleNode(String key){
