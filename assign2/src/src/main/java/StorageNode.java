@@ -77,24 +77,24 @@ public class StorageNode implements Functions, Remote {
             //Unbind previous remote object's stub in the registry
             registry.rebind(Constants.REG_FUNC_VAL, functionsStub);
 
-            int x[] = {1,4,6,10};
-            int i = node.binarySearch(x,0,4,3);
-            System.out.println("i: " + i);
-
-            //For debug purposes:
-            Scanner scanner = new Scanner(System.in);
-            char cmd; boolean stop = false;
-            while(!stop){
-                cmd = scanner.next().charAt(0);
-                switch (Character.toLowerCase(cmd)){
-                    case 'q': stop = true;
-                    case 'j': node.join(); break;
-                    case 'l': node.leave(); break;
-                    case 'm': node.showMembers(); break;
-                    case 'g': node.showMembershipLog(); break;
-                    default: System.out.println("Invalid key");
-                }
-            }
+//            int x[] = {1,4,6,10};
+//            int i = node.binarySearch(x,0,4,3);
+//            System.out.println("i: " + i);
+//
+//            //For debug purposes:
+//            Scanner scanner = new Scanner(System.in);
+//            char cmd; boolean stop = false;
+//            while(!stop){
+//                cmd = scanner.next().charAt(0);
+//                switch (Character.toLowerCase(cmd)){
+//                    case 'q': stop = true;
+//                    case 'j': node.join(); break;
+//                    case 'l': node.leave(); break;
+//                    case 'm': node.showMembers(); break;
+//                    case 'g': node.showMembershipLog(); break;
+//                    default: System.out.println("Invalid key");
+//                }
+//            }
 
         }catch(Exception e){
             System.err.println("\n[Main] Server exception: " + e);
