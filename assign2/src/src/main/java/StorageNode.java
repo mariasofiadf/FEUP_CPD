@@ -1,7 +1,6 @@
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Socket;
-import java.net.UnknownHostException;
 import java.rmi.Remote;
 import java.rmi.registry.Registry;
 import java.rmi.registry.LocateRegistry;
@@ -78,6 +77,10 @@ public class StorageNode implements Functions, Remote {
             //Unbind previous remote object's stub in the registry
             registry.rebind(Constants.REG_FUNC_VAL, functionsStub);
 
+            int x[] = {1,4,6,10};
+            int i = node.binarySearch(x,0,4,3);
+            System.out.println("i: " + i);
+
             //For debug purposes:
             Scanner scanner = new Scanner(System.in);
             char cmd; boolean stop = false;
@@ -124,7 +127,9 @@ public class StorageNode implements Functions, Remote {
     }
 
     @Override
-    public String put(int key, byte[] value) throws RemoteException {
+    public String put(String key, String value) throws RemoteException {
+
+        ScheduledFuture scheduledFuture = ses.schedule(new Putter(this, key, value),0, TimeUnit.SECONDS);
         return "put not implemented yet";
     }
 
@@ -170,5 +175,35 @@ public class StorageNode implements Functions, Remote {
     public void showMembershipLog(){
         System.out.println("Membership Log");
         membershipLog.forEach((k,v)-> System.out.println("[Main] Id: " + k.substring(0,6) + " | Counter: " + v));
+    }
+
+    int binarySearch(int arr[], int l, int r, int x)
+    {
+        if (r >= l) {
+            int mid = l + (r - l) / 2;
+
+            // If the element is present at the
+            // middle itself
+            if (arr[mid] > x && arr[mid-1] < x)
+                return mid;
+
+            // If element is smaller than mid, then
+            // it can only be present in left subarray
+            if (arr[mid] > x)
+                return binarySearch(arr, l, mid - 1, x);
+
+            // Else the element can only be present
+            // in right subarray
+            return binarySearch(arr, mid + 1, r, x);
+        }
+
+        // We reach here when element is not present
+        // in array
+        return -1;
+    }
+
+    public void getResponsibleNode(String key){
+
+
     }
 }
