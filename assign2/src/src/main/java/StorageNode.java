@@ -80,6 +80,12 @@ public class StorageNode implements Functions, Remote {
             int x[] = {1,4,6,10};
             int i = node.binarySearch(x,0,4,3);
             System.out.println("i: " + i);
+            i = node.binarySearch(x,0,4,5);
+            System.out.println("i: " + i);
+            i = node.binarySearch(x,0,4,9);
+            System.out.println("i: " + i);
+            i = node.binarySearch(x,0,4,500);
+            System.out.println("i: " + i);
 
             //For debug purposes:
             Scanner scanner = new Scanner(System.in);
@@ -182,11 +188,15 @@ public class StorageNode implements Functions, Remote {
         if (r >= l) {
             int mid = l + (r - l) / 2;
 
+            if(mid >= arr.length)
+                return 0;
+            if(mid < 0)
+                return 1;
             // If the element is present at the
             // middle itself
-            if (arr[mid] > x && arr[mid-1] < x)
+            if (arr[mid] > x  && arr[mid-1] < x){
                 return mid;
-
+            }
             // If element is smaller than mid, then
             // it can only be present in left subarray
             if (arr[mid] > x)
