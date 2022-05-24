@@ -2,12 +2,12 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.rmi.RemoteException;
+import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.channels.DatagramChannel;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import static java.lang.String.valueOf;
@@ -16,15 +16,20 @@ public class UDPMulticastSender implements Callable {
 
     String msg;
     StorageNode node;
-    public UDPMulticastSender(StorageNode node, String msg) {
+    DatagramChannel dc;
+    InetSocketAddress address;
+    public UDPMulticastSender(StorageNode node, String msg, DatagramChannel dc, InetSocketAddress address) {
             this.msg = msg;
             this.node = node;
+            this.dc = dc;
+            this.address = address;
     }
     public static void sendUDPMessage(String message, String ipAddress, int port) throws IOException {
-        DatagramSocket socket = new DatagramSocket();
         InetAddress group = InetAddress.getByName(ipAddress);
+        DatagramSocket socket = new DatagramSocket();
         byte[] msg = message.getBytes();
-        DatagramPacket packet = new DatagramPacket(msg, msg.length, group, port);
+        DatagramPacket packet = new DatagramPacket(msg, msg.length,group,port);
+        ByteBuffer buffer = ByteBuffer.wrap(msg);
         socket.send(packet);
         socket.close();
     }
@@ -37,7 +42,9 @@ public class UDPMulticastSender implements Callable {
             case Constants.LEAVE -> content = leave();
             case Constants.MEMBERSHIP -> content = membership();
         }
-        sendUDPMessage(content, node.IP_mcast_addr, node.IP_mcast_port);
+        ByteBuffer bb = ByteBuffer.wrap(content.getBytes());
+        dc.send(bb, address);
+        bb.flip();
         return "";
     }
 
@@ -54,8 +61,7 @@ public class UDPMulticastSender implements Callable {
 
         String msg = message.assembleMsg(map);
         System.out.println("[Mcast Sender] Sending membership msg to " + node.IP_mcast_addr + ":" + node.IP_mcast_port);
-        if(node.inGroup)
-            node.ses.schedule(new UDPMulticastSender(node, Constants.MEMBERSHIP), 5, TimeUnit.SECONDS);
+        if(node.inGroup) node.q.add(Constants.MEMBERSHIP);
         else System.out.println("[Mcast Sender] Stopped sending membership msg");
         return msg;
     }

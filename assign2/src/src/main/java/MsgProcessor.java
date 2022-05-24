@@ -1,13 +1,16 @@
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.DatagramChannel;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
 import static java.lang.Integer.parseInt;
 
 public class MsgProcessor implements Callable {
-    String msg;
+    DatagramChannel dc;
     StorageNode node;
-    public MsgProcessor(StorageNode node, String msg){
-        this.msg = msg;
+    public MsgProcessor(StorageNode node, DatagramChannel dc){
+        this.dc = dc;
         this.node = node;
     }
 
@@ -34,7 +37,14 @@ public class MsgProcessor implements Callable {
     }
 
     @Override
-    public Object call() {
+    public Object call() throws IOException {
+        ByteBuffer bb = ByteBuffer.allocate(1000);
+        dc.receive(bb);
+        bb.flip();
+        byte[] data = new byte[bb.limit()];
+        bb.get(data);
+        String msg = new String(data);
+        bb.clear();
         process(msg);
         return null;
     }

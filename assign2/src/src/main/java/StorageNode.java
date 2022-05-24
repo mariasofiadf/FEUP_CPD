@@ -1,6 +1,5 @@
 import java.io.IOException;
-import java.net.InetAddress;
-import java.net.Socket;
+import java.net.*;
 import java.rmi.Remote;
 import java.rmi.registry.Registry;
 import java.rmi.registry.LocateRegistry;
@@ -9,7 +8,10 @@ import java.rmi.server.UnicastRemoteObject;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.*;
-
+import java.nio.ByteBuffer;
+import java.nio.channels.DatagramChannel;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.valueOf;
 
@@ -20,14 +22,13 @@ public class StorageNode implements Functions, Remote {
     String IP_mcast_addr;
     Integer IP_mcast_port;
     Integer port;
-
     ScheduledExecutorService ses;
     // <key, path>
     ConcurrentHashMap<String, String> keyPathMap;
     //hashed ids
     SortedMap<String, Integer> membershipLog;
     List<String> members;
-    UDPMulticastReceiver mcastReceiver;
+    Queue<String> q = new LinkedList<>();
     StorageNode(ScheduledExecutorService ses, ConcurrentHashMap<String, String> keyPathMap,
                 SortedMap<String, Integer> membershipLog, List<String> members,
                 String IP_mcast_addr, String IP_mcast_port, String id, String port) {
@@ -59,40 +60,65 @@ public class StorageNode implements Functions, Remote {
         if(args.length != 4)
         {
             System.out.println("Wrong number of arguments for Node startup");
-            System.out.println("Usage:\njava -Djava.rmi.server.codebase=file:./ Store <IP_mcast_addr> <IP_mcast_port> <node_id>  <Store_port>");
+            System.out.println("Usage:\njava -Djava.rmi.    .codebase=file:./ Store <IP_mcast_addr> <IP_mcast_port> <node_id>  <Store_port>");
             return;
         }
 
         try{
+            
             StorageNode node = new StorageNode(Executors.newScheduledThreadPool(Constants.MAX_THREADS),
             new ConcurrentHashMap<>(), new TreeMap<>(), new ArrayList<>(), args[0], args[1], args[2], args[3]);
 
+            Selector selector = Selector.open();
+            InetAddress group = InetAddress.getByName(node.IP_mcast_addr);
+            final InetSocketAddress address = new InetSocketAddress(group, node.IP_mcast_port);
+
+            final NetworkInterface ni;
+            try (MulticastSocket temp = new MulticastSocket()) {
+                ni = temp.getNetworkInterface();
+            }
+            DatagramChannel datagramChannel = DatagramChannel.open(StandardProtocolFamily.INET)
+                .setOption(StandardSocketOptions.SO_REUSEADDR, true)
+                .bind(new InetSocketAddress(node.IP_mcast_port))
+                .setOption(StandardSocketOptions.IP_MULTICAST_IF, ni);
+
+            datagramChannel.configureBlocking(false);
+            datagramChannel.join(group, ni);
+
+            int ops = datagramChannel.validOps();  
+            SelectionKey selectKy = datagramChannel.register(selector, ops);
+            
             System.out.printf("[Main] Node initialized with IP_mcast_addr=%s IP_mcast_port=%d node_id=%s Store_port=%d%n",
                     node.IP_mcast_addr, node.IP_mcast_port, node.id.substring(0,6), node.port);
 
-            ScheduledFuture<String> scheduledFuture = node.ses.schedule(new UnicastReceiver(InetAddress.getLocalHost().getHostAddress(), node.port),0, TimeUnit.SECONDS);
             Functions functionsStub = (Functions) UnicastRemoteObject.exportObject(node,0);
-
             Registry registry = LocateRegistry.getRegistry();
-
             //Unbind previous remote object's stub in the registry
             registry.rebind(Constants.REG_FUNC_VAL, functionsStub);
-            //For debug purposes:
-            Scanner scanner = new Scanner(System.in);
-            char cmd; boolean stop = false;
-            while(!stop){
-                cmd = scanner.next().charAt(0);
-                switch (Character.toLowerCase(cmd)){
-                    case 'q': stop = true;
-                    case 'j': node.join(); break;
-                    case 'l': node.leave(); break;
-                    case 'm': node.showMembers(); break;
-                    case 'g': node.showMembershipLog(); break;
-                    case 'k': node.showKeys(); break;
-                    case 'p': node.put("5xafas", "content".getBytes()); break;
-                    default: System.out.println("Invalid key");
-                }
-            }
+            boolean stop = false;
+            node.ses.schedule(new DebugHelper(node),0,TimeUnit.SECONDS); //TODO: Remove this when done (This is for debug only)
+
+            for (;;) {  
+                int noOfKeys = selector.select();  
+                Set selectedKeys = selector.selectedKeys();  
+                Iterator itr = selectedKeys.iterator();
+                while (itr.hasNext()) {
+                    SelectionKey ky = (SelectionKey) itr.next();
+                    if (ky.isReadable()) {
+                        node.ses.schedule(new MsgProcessor(node, (DatagramChannel) ky.channel()),0,TimeUnit.SECONDS);
+                    }  
+                    else if (ky.isWritable()) {
+                        if(node.q.isEmpty())
+                            continue;
+                        node.ses.schedule(new UDPMulticastSender(node, node.q.remove(), (DatagramChannel) ky.channel(), address), 0, TimeUnit.SECONDS);
+
+                    }
+                    itr.remove();
+                    TimeUnit.SECONDS.sleep(1);
+                } // end of while loop  
+                if(stop)
+                    break;
+            } // end of for loop  
 
         }catch(Exception e){
             System.err.println("\n[Main] Server exception: " + e);
@@ -103,25 +129,17 @@ public class StorageNode implements Functions, Remote {
     @Override
     public String join() throws RemoteException, InterruptedException, ExecutionException {
         inGroup = true;
-        //Start listening to mcast group
-        mcastReceiver = new UDPMulticastReceiver(this);
-        this.ses.schedule(mcastReceiver, 0, TimeUnit.SECONDS);
-
-        //Start periodic membership messages
-        this.ses.schedule(new UDPMulticastSender(this, Constants.MEMBERSHIP), 5, TimeUnit.SECONDS);
-
-        //UDPMulticastSender knows how to assemble join msg
-        ScheduledFuture scheduledFuture = ses.schedule(new UDPMulticastSender(this, Constants.JOIN),0, TimeUnit.SECONDS);
-        return scheduledFuture.get().toString();
+        q.add(Constants.MEMBERSHIP);
+        q.add(Constants.JOIN);
+        return "";
     }
 
 
     @Override
     public String leave() throws RemoteException, ExecutionException, InterruptedException {
         inGroup = false;
-        //UDPMulticastSender knows how to assemble leave msg
-        ScheduledFuture scheduledFuture = ses.schedule(new UDPMulticastSender(this, Constants.LEAVE),0, TimeUnit.SECONDS);
-        return scheduledFuture.get().toString();
+        q.add(Constants.LEAVE);
+        return "";
     }
 
     @Override
@@ -132,8 +150,7 @@ public class StorageNode implements Functions, Remote {
 
     @Override
     public String get(int key) throws RemoteException, ExecutionException, InterruptedException {
-        ScheduledFuture scheduledFuture = ses.schedule(new Getter(key),0, TimeUnit.SECONDS);
-        return scheduledFuture.get().toString();
+        return "get not implemented yet";
     }
 
     @Override
@@ -166,7 +183,6 @@ public class StorageNode implements Functions, Remote {
         for (String member : members) {
             System.out.println("[Main] " + member.substring(0,6));
         }
-
     }
 
     public void showMembershipLog(){
