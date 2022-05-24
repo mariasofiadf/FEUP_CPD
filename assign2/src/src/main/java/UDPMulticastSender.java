@@ -2,6 +2,8 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
 import java.rmi.RemoteException;
 import java.util.HashMap;
 import java.util.Map;
@@ -21,10 +23,11 @@ public class UDPMulticastSender implements Callable {
             this.node = node;
     }
     public static void sendUDPMessage(String message, String ipAddress, int port) throws IOException {
+        InetSocketAddress group = new InetSocketAddress(ipAddress, port);
         DatagramSocket socket = new DatagramSocket();
-        InetAddress group = InetAddress.getByName(ipAddress);
         byte[] msg = message.getBytes();
-        DatagramPacket packet = new DatagramPacket(msg, msg.length, group, port);
+        DatagramPacket packet = new DatagramPacket(msg, msg.length);
+        ByteBuffer buffer = ByteBuffer.wrap(msg);
         socket.send(packet);
         socket.close();
     }

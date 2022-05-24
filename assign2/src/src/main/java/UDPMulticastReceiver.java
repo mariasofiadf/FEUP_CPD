@@ -26,7 +26,7 @@ public class UDPMulticastReceiver implements Callable {
             socket.receive(packet);
             String msg = new String(packet.getData(), packet.getOffset(), packet.getLength());
 
-            node.ses.schedule(new MsgProcessor(node, msg), 0, TimeUnit.SECONDS); // Schedule
+            //node.ses.schedule(new MsgProcessor(node, msg), 0, TimeUnit.SECONDS); // Schedule
             if ("OK".equals(msg)) { //TODO: Remove this when shutdown is implemented
                 System.out.println("No more message. Exiting : " + msg);
                 break;
