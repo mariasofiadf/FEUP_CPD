@@ -4,8 +4,8 @@ public class Putter implements Callable {
 
     StorageNode node;
     String key;
-    String value;
-    public Putter(StorageNode node, String key, String value) {
+    byte[] value;
+    public Putter(StorageNode node, String key, byte[] value) {
         this.key = key;
         this.value = value;
         this.node = node;

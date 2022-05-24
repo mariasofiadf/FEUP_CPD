@@ -89,7 +89,7 @@ public class StorageNode implements Functions, Remote {
                     case 'm': node.showMembers(); break;
                     case 'g': node.showMembershipLog(); break;
                     case 'k': node.showKeys(); break;
-                    case 'p': node.put("5xafas", "content"); break;
+                    case 'p': node.put("5xafas", "content".getBytes()); break;
                     default: System.out.println("Invalid key");
                 }
             }
@@ -125,8 +125,8 @@ public class StorageNode implements Functions, Remote {
     }
 
     @Override
-    public String put(String key, String value) throws RemoteException {
-        ScheduledFuture scheduledFuture = ses.schedule(new Putter(this, key, value),0, TimeUnit.SECONDS);
+    public String put(String key, byte[] bs) throws RemoteException {
+        ScheduledFuture scheduledFuture = ses.schedule(new Putter(this, key, bs),0, TimeUnit.SECONDS);
         return "put not implemented yet";
     }
 
