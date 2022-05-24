@@ -1,7 +1,6 @@
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Socket;
-import java.net.UnknownHostException;
 import java.rmi.Remote;
 import java.rmi.registry.Registry;
 import java.rmi.registry.LocateRegistry;
@@ -22,8 +21,14 @@ public class StorageNode implements Functions, Remote {
     Integer IP_mcast_port;
     Integer port;
 
+    ScheduledExecutorService ses;
+    // <key, path>
+    ConcurrentHashMap<String, String> keyPathMap;
+    //hashed ids
+    SortedMap<String, Integer> membershipLog;
+    List<String> members;
     UDPMulticastReceiver mcastReceiver;
-    StorageNode(ScheduledExecutorService ses, ConcurrentHashMap<Integer, String> keyPathMap,
+    StorageNode(ScheduledExecutorService ses, ConcurrentHashMap<String, String> keyPathMap,
                 SortedMap<String, Integer> membershipLog, List<String> members,
                 String IP_mcast_addr, String IP_mcast_port, String id, String port) {
         this.ses = ses;
@@ -41,12 +46,7 @@ public class StorageNode implements Functions, Remote {
         }
         addMembershipEntry(this.id, counter);
     }
-    ScheduledExecutorService ses;
-    // <key, path>
-    ConcurrentHashMap<Integer, String> keyPathMap;
-    //hashed ids
-    SortedMap<String, Integer> membershipLog;
-    List<String> members;
+
 
     private static boolean available(int port) {
         try (Socket ignored = new Socket("localhost", port)) {
@@ -67,17 +67,16 @@ public class StorageNode implements Functions, Remote {
             StorageNode node = new StorageNode(Executors.newScheduledThreadPool(Constants.MAX_THREADS),
             new ConcurrentHashMap<>(), new TreeMap<>(), new ArrayList<>(), args[0], args[1], args[2], args[3]);
 
-            System.out.println(String.format("[Main] Node initialized with IP_mcast_addr=%s IP_mcast_port=%d node_id=%s Store_port=%d",
-                    node.IP_mcast_addr, node.IP_mcast_port, node.id.substring(0,6), node.port));
+            System.out.printf("[Main] Node initialized with IP_mcast_addr=%s IP_mcast_port=%d node_id=%s Store_port=%d%n",
+                    node.IP_mcast_addr, node.IP_mcast_port, node.id.substring(0,6), node.port);
 
-            ScheduledFuture scheduledFuture = node.ses.schedule(new UnicastReceiver(InetAddress.getLocalHost().getHostAddress(), node.port),0, TimeUnit.SECONDS);
+            ScheduledFuture<String> scheduledFuture = node.ses.schedule(new UnicastReceiver(InetAddress.getLocalHost().getHostAddress(), node.port),0, TimeUnit.SECONDS);
             Functions functionsStub = (Functions) UnicastRemoteObject.exportObject(node,0);
 
             Registry registry = LocateRegistry.getRegistry();
 
             //Unbind previous remote object's stub in the registry
             registry.rebind(Constants.REG_FUNC_VAL, functionsStub);
-
             //For debug purposes:
             Scanner scanner = new Scanner(System.in);
             char cmd; boolean stop = false;
@@ -89,6 +88,8 @@ public class StorageNode implements Functions, Remote {
                     case 'l': node.leave(); break;
                     case 'm': node.showMembers(); break;
                     case 'g': node.showMembershipLog(); break;
+                    case 'k': node.showKeys(); break;
+                    case 'p': node.put("5xafas", "content"); break;
                     default: System.out.println("Invalid key");
                 }
             }
@@ -124,7 +125,8 @@ public class StorageNode implements Functions, Remote {
     }
 
     @Override
-    public String put(int key, byte[] value) throws RemoteException {
+    public String put(String key, String value) throws RemoteException {
+        ScheduledFuture scheduledFuture = ses.schedule(new Putter(this, key, value),0, TimeUnit.SECONDS);
         return "put not implemented yet";
     }
 
@@ -170,5 +172,45 @@ public class StorageNode implements Functions, Remote {
     public void showMembershipLog(){
         System.out.println("Membership Log");
         membershipLog.forEach((k,v)-> System.out.println("[Main] Id: " + k.substring(0,6) + " | Counter: " + v));
+    }
+
+    String binarySearch(List<String> arr, int l, int r, String x)
+    {
+        if(arr.size() == 1) return arr.get(0);
+        if (r >= l) {
+            int mid = l + (r - l) / 2;
+            System.out.println("mid" + mid);
+
+            if(mid >= arr.size())
+                return arr.get(0);
+            if(mid <= 0)
+                return arr.get(1);
+            // If the element is present at the
+            // middle itself
+            if (arr.get(mid).compareTo(x) > 0  && arr.get(mid-1).compareTo(x) < 0){
+                return arr.get(mid);
+            }
+            // If element is smaller than mid, then
+            // it can only be present in left subarray
+            if (arr.get(mid).compareTo(x) > 0)
+                return binarySearch(arr, l, mid - 1, x);
+
+            // Else the element can only be present
+            // in right subarray
+            return binarySearch(arr, mid + 1, r, x);
+        }
+
+        // We reach here when element is not present
+        // in array
+        return "";
+    }
+
+    public String getResponsibleNode(String key){
+        return binarySearch(this.members,0, this.members.size(),key);
+
+    }
+
+    public void showKeys(){
+        this.keyPathMap.forEach((k,v)-> System.out.println("key: "+ k + "\tpath: " + v));
     }
 }
