@@ -22,7 +22,6 @@ public class MsgProcessor implements Callable {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        System.out.println("Received msg" + msg);
         System.out.println("[Msg Processor] Received " + map.get(Constants.ACTION));
         switch (map.get(Constants.ACTION)) {
             case Constants.JOIN, Constants.LEAVE -> {

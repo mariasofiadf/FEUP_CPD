@@ -23,10 +23,10 @@ public class UDPMulticastSender implements Callable {
             this.node = node;
     }
     public static void sendUDPMessage(String message, String ipAddress, int port) throws IOException {
-        InetSocketAddress group = new InetSocketAddress(ipAddress, port);
+        InetAddress group = InetAddress.getByName(ipAddress);
         DatagramSocket socket = new DatagramSocket();
         byte[] msg = message.getBytes();
-        DatagramPacket packet = new DatagramPacket(msg, msg.length);
+        DatagramPacket packet = new DatagramPacket(msg, msg.length,group,port);
         ByteBuffer buffer = ByteBuffer.wrap(msg);
         socket.send(packet);
         socket.close();
@@ -40,6 +40,7 @@ public class UDPMulticastSender implements Callable {
             case Constants.LEAVE -> content = leave();
             case Constants.MEMBERSHIP -> content = membership();
         }
+        System.out.println(node.IP_mcast_addr+"  "+ node.IP_mcast_port);
         sendUDPMessage(content, node.IP_mcast_addr, node.IP_mcast_port);
         return "";
     }

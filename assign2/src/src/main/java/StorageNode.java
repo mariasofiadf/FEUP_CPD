@@ -97,6 +97,7 @@ public class StorageNode implements Functions, Remote {
             //Unbind previous remote object's stub in the registry
             registry.rebind(Constants.REG_FUNC_VAL, functionsStub);
             boolean stop = false;
+            node.ses.schedule(new DebugHelper(node),0,TimeUnit.SECONDS); //TODO: Remove this when done (This is for debug only)
 
             for (;;) {  
                 int noOfKeys = selector.select();  
@@ -107,12 +108,12 @@ public class StorageNode implements Functions, Remote {
                     if (ky.isReadable()) {
                         node.ses.schedule(new MsgProcessor(node, (DatagramChannel) ky.channel()),0,TimeUnit.SECONDS);
                     }  
-                    else if (ky.isWritable()) {
-                        ByteBuffer bb = ByteBuffer.wrap("hello world".getBytes("utf-8"));
-                        DatagramChannel dc = (DatagramChannel) ky.channel();
-                        dc.send(bb, address);
-                        bb.flip();
-                    }
+//                    else if (ky.isWritable()) {
+//                        ByteBuffer bb = ByteBuffer.wrap("hello world".getBytes("utf-8"));
+//                        DatagramChannel dc = (DatagramChannel) ky.channel();
+//                        dc.send(bb, address);
+//                        bb.flip();
+//                    }
                     itr.remove();
                     TimeUnit.SECONDS.sleep(1);
                 } // end of while loop  
@@ -121,22 +122,7 @@ public class StorageNode implements Functions, Remote {
             } // end of for loop  
 
 
-            //For debug purposes:
-            // Scanner scanner = new Scanner(System.in);
-            // char cmd; boolean stop = false;
-            // while(!stop){
-            //     cmd = scanner.next().charAt(0);
-            //     switch (Character.toLowerCase(cmd)){
-            //         case 'q': stop = true;
-            //         case 'j': node.join(); break;
-            //         case 'l': node.leave(); break;
-            //         case 'm': node.showMembers(); break;
-            //         case 'g': node.showMembershipLog(); break;
-            //         case 'k': node.showKeys(); break;
-            //         case 'p': node.put("5xafas", "content".getBytes()); break;
-            //         default: System.out.println("Invalid key");
-            //     }
-            // }
+
 
         }catch(Exception e){
             System.err.println("\n[Main] Server exception: " + e);
@@ -147,13 +133,8 @@ public class StorageNode implements Functions, Remote {
     @Override
     public String join() throws RemoteException, InterruptedException, ExecutionException {
         inGroup = true;
-        //Start listening to mcast group
-        mcastReceiver = new UDPMulticastReceiver(this);
-        this.ses.schedule(mcastReceiver, 0, TimeUnit.SECONDS);
-
         //Start periodic membership messages
         this.ses.schedule(new UDPMulticastSender(this, Constants.MEMBERSHIP), 5, TimeUnit.SECONDS);
-
         //UDPMulticastSender knows how to assemble join msg
         ScheduledFuture scheduledFuture = ses.schedule(new UDPMulticastSender(this, Constants.JOIN),0, TimeUnit.SECONDS);
         return scheduledFuture.get().toString();
@@ -210,7 +191,6 @@ public class StorageNode implements Functions, Remote {
         for (String member : members) {
             System.out.println("[Main] " + member.substring(0,6));
         }
-
     }
 
     public void showMembershipLog(){
