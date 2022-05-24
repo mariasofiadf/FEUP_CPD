@@ -4,12 +4,10 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.rmi.RemoteException;
+import java.nio.channels.DatagramChannel;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import static java.lang.String.valueOf;
@@ -18,9 +16,13 @@ public class UDPMulticastSender implements Callable {
 
     String msg;
     StorageNode node;
-    public UDPMulticastSender(StorageNode node, String msg) {
+    DatagramChannel dc;
+    InetSocketAddress address;
+    public UDPMulticastSender(StorageNode node, String msg, DatagramChannel dc, InetSocketAddress address) {
             this.msg = msg;
             this.node = node;
+            this.dc = dc;
+            this.address = address;
     }
     public static void sendUDPMessage(String message, String ipAddress, int port) throws IOException {
         InetAddress group = InetAddress.getByName(ipAddress);
@@ -40,8 +42,9 @@ public class UDPMulticastSender implements Callable {
             case Constants.LEAVE -> content = leave();
             case Constants.MEMBERSHIP -> content = membership();
         }
-        System.out.println(node.IP_mcast_addr+"  "+ node.IP_mcast_port);
-        sendUDPMessage(content, node.IP_mcast_addr, node.IP_mcast_port);
+        ByteBuffer bb = ByteBuffer.wrap(content.getBytes());
+        dc.send(bb, address);
+        bb.flip();
         return "";
     }
 
@@ -58,8 +61,7 @@ public class UDPMulticastSender implements Callable {
 
         String msg = message.assembleMsg(map);
         System.out.println("[Mcast Sender] Sending membership msg to " + node.IP_mcast_addr + ":" + node.IP_mcast_port);
-        if(node.inGroup)
-            node.ses.schedule(new UDPMulticastSender(node, Constants.MEMBERSHIP), 5, TimeUnit.SECONDS);
+        if(node.inGroup) node.q.add(Constants.MEMBERSHIP);
         else System.out.println("[Mcast Sender] Stopped sending membership msg");
         return msg;
     }

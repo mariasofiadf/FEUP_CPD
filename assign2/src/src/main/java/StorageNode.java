@@ -22,14 +22,13 @@ public class StorageNode implements Functions, Remote {
     String IP_mcast_addr;
     Integer IP_mcast_port;
     Integer port;
-
     ScheduledExecutorService ses;
     // <key, path>
     ConcurrentHashMap<String, String> keyPathMap;
     //hashed ids
     SortedMap<String, Integer> membershipLog;
     List<String> members;
-    UDPMulticastReceiver mcastReceiver;
+    Queue<String> q = new LinkedList<>();
     StorageNode(ScheduledExecutorService ses, ConcurrentHashMap<String, String> keyPathMap,
                 SortedMap<String, Integer> membershipLog, List<String> members,
                 String IP_mcast_addr, String IP_mcast_port, String id, String port) {
@@ -108,21 +107,18 @@ public class StorageNode implements Functions, Remote {
                     if (ky.isReadable()) {
                         node.ses.schedule(new MsgProcessor(node, (DatagramChannel) ky.channel()),0,TimeUnit.SECONDS);
                     }  
-//                    else if (ky.isWritable()) {
-//                        ByteBuffer bb = ByteBuffer.wrap("hello world".getBytes("utf-8"));
-//                        DatagramChannel dc = (DatagramChannel) ky.channel();
-//                        dc.send(bb, address);
-//                        bb.flip();
-//                    }
+                    else if (ky.isWritable()) {
+                        if(node.q.isEmpty())
+                            continue;
+                        node.ses.schedule(new UDPMulticastSender(node, node.q.remove(), (DatagramChannel) ky.channel(), address), 0, TimeUnit.SECONDS);
+
+                    }
                     itr.remove();
                     TimeUnit.SECONDS.sleep(1);
                 } // end of while loop  
                 if(stop)
                     break;
             } // end of for loop  
-
-
-
 
         }catch(Exception e){
             System.err.println("\n[Main] Server exception: " + e);
@@ -133,20 +129,17 @@ public class StorageNode implements Functions, Remote {
     @Override
     public String join() throws RemoteException, InterruptedException, ExecutionException {
         inGroup = true;
-        //Start periodic membership messages
-        this.ses.schedule(new UDPMulticastSender(this, Constants.MEMBERSHIP), 5, TimeUnit.SECONDS);
-        //UDPMulticastSender knows how to assemble join msg
-        ScheduledFuture scheduledFuture = ses.schedule(new UDPMulticastSender(this, Constants.JOIN),0, TimeUnit.SECONDS);
-        return scheduledFuture.get().toString();
+        q.add(Constants.MEMBERSHIP);
+        q.add(Constants.JOIN);
+        return "";
     }
 
 
     @Override
     public String leave() throws RemoteException, ExecutionException, InterruptedException {
         inGroup = false;
-        //UDPMulticastSender knows how to assemble leave msg
-        ScheduledFuture scheduledFuture = ses.schedule(new UDPMulticastSender(this, Constants.LEAVE),0, TimeUnit.SECONDS);
-        return scheduledFuture.get().toString();
+        q.add(Constants.LEAVE);
+        return "";
     }
 
     @Override
@@ -157,8 +150,7 @@ public class StorageNode implements Functions, Remote {
 
     @Override
     public String get(int key) throws RemoteException, ExecutionException, InterruptedException {
-        ScheduledFuture scheduledFuture = ses.schedule(new Getter(key),0, TimeUnit.SECONDS);
-        return scheduledFuture.get().toString();
+        return "get not implemented yet";
     }
 
     @Override
