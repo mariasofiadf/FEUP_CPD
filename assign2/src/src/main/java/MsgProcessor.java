@@ -1,6 +1,7 @@
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
+import java.nio.channels.SelectableChannel;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
@@ -8,9 +9,14 @@ import static java.lang.Integer.parseInt;
 
 public class MsgProcessor implements Callable {
     DatagramChannel dc;
+    SelectableChannel sc;
     StorageNode node;
     public MsgProcessor(StorageNode node, DatagramChannel dc){
         this.dc = dc;
+        this.node = node;
+    }
+    public MsgProcessor(StorageNode node, SelectableChannel sc){
+        this.sc = sc;
         this.node = node;
     }
 

@@ -5,6 +5,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -61,7 +62,7 @@ public class UDPMulticastSender implements Callable {
 
         String msg = message.assembleMsg(map);
         System.out.println("[Mcast Sender] Sending membership msg to " + node.IP_mcast_addr + ":" + node.IP_mcast_port);
-        if(node.inGroup) node.q.add(Constants.MEMBERSHIP);
+        if(node.inGroup) node.q.add(new Task(Constants.MEMBERSHIP,Constants.MEMBERSHIP_INTERVAL));
         else System.out.println("[Mcast Sender] Stopped sending membership msg");
         return msg;
     }

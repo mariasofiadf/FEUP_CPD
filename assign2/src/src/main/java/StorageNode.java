@@ -1,5 +1,6 @@
-import java.io.IOException;
+import java.io.*;
 import java.net.*;
+import java.nio.channels.*;
 import java.rmi.Remote;
 import java.rmi.registry.Registry;
 import java.rmi.registry.LocateRegistry;
@@ -8,12 +9,12 @@ import java.rmi.server.UnicastRemoteObject;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.*;
-import java.nio.ByteBuffer;
-import java.nio.channels.DatagramChannel;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
+
 import static java.lang.Integer.parseInt;
 import static java.lang.String.valueOf;
+import static java.nio.channels.SelectionKey.OP_READ;
+import static java.nio.channels.SelectionKey.OP_WRITE;
+
 
 public class StorageNode implements Functions, Remote {
     int counter = 0;
@@ -28,14 +29,13 @@ public class StorageNode implements Functions, Remote {
     //hashed ids
     SortedMap<String, Integer> membershipLog;
     List<String> members;
-    Queue<String> q = new LinkedList<>();
-    StorageNode(ScheduledExecutorService ses, ConcurrentHashMap<String, String> keyPathMap,
-                SortedMap<String, Integer> membershipLog, List<String> members,
-                String IP_mcast_addr, String IP_mcast_port, String id, String port) {
-        this.ses = ses;
-        this.keyPathMap = keyPathMap;
-        this.membershipLog = membershipLog; //TODO: Initialize log from disk
-        this.members = members; //TODO Initialize members from disk
+    Queue<Task> q = new LinkedList<>();
+
+    StorageNode(String IP_mcast_addr, String IP_mcast_port, String id, String port) {
+        this.ses = Executors.newScheduledThreadPool(Constants.MAX_THREADS);
+        this.keyPathMap = new ConcurrentHashMap<>();
+        this.membershipLog = new TreeMap<>();
+        this.members = new ArrayList<>();
         this.IP_mcast_addr = IP_mcast_addr;
         this.IP_mcast_port = Integer.valueOf(IP_mcast_port);
         this.port = Integer.valueOf(port);
@@ -45,7 +45,7 @@ public class StorageNode implements Functions, Remote {
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
-        addMembershipEntry(this.id, counter);
+        this.loadFromDisk();
     }
 
     private static boolean available(int port) {
@@ -65,8 +65,7 @@ public class StorageNode implements Functions, Remote {
 
         try{
             
-            StorageNode node = new StorageNode(Executors.newScheduledThreadPool(Constants.MAX_THREADS),
-            new ConcurrentHashMap<>(), new TreeMap<>(), new ArrayList<>(), args[0], args[1], args[2], args[3]);
+            StorageNode node = new StorageNode(args[0], args[1], args[2], args[3]);
 
             Selector selector = Selector.open();
             InetAddress group = InetAddress.getByName(node.IP_mcast_addr);
@@ -80,22 +79,30 @@ public class StorageNode implements Functions, Remote {
                 .setOption(StandardSocketOptions.SO_REUSEADDR, true)
                 .bind(new InetSocketAddress(node.IP_mcast_port))
                 .setOption(StandardSocketOptions.IP_MULTICAST_IF, ni);
-
             datagramChannel.configureBlocking(false);
             datagramChannel.join(group, ni);
-
             int ops = datagramChannel.validOps();  
-            SelectionKey selectKy = datagramChannel.register(selector, ops);
-            
+            SelectionKey selectKy = datagramChannel.register(selector, ops, Constants.CHANNEL_MCAST);
+
+            Pipe pipe = Pipe.open();
+            SelectableChannel pipeChannelSource = pipe.source();
+            pipeChannelSource.configureBlocking(false);
+            pipeChannelSource.register(selector, OP_READ, Constants.CHANNEL_FILES_READ);
+            SelectableChannel pipeChannelSink = pipe.sink();
+            pipeChannelSink.configureBlocking(false);
+            pipeChannelSink.register(selector, OP_WRITE, Constants.CHANNEL_FILES_WRITE);
+            FileController fileController = new FileController(pipe);
+            fileController.run();
+
             System.out.printf("[Main] Node initialized with IP_mcast_addr=%s IP_mcast_port=%d node_id=%s Store_port=%d%n",
                     node.IP_mcast_addr, node.IP_mcast_port, node.id.substring(0,6), node.port);
 
             Functions functionsStub = (Functions) UnicastRemoteObject.exportObject(node,0);
             Registry registry = LocateRegistry.getRegistry();
-            //Unbind previous remote object's stub in the registry
             registry.rebind(Constants.REG_FUNC_VAL, functionsStub);
             boolean stop = false;
-            node.ses.schedule(new DebugHelper(node),0,TimeUnit.SECONDS); //TODO: Remove this when done (This is for debug only)
+            if(Constants.DEBUG)
+                node.ses.schedule(new DebugHelper(node),0,TimeUnit.SECONDS);
 
             for (;;) {  
                 int noOfKeys = selector.select();  
@@ -103,16 +110,26 @@ public class StorageNode implements Functions, Remote {
                 Iterator itr = selectedKeys.iterator();
                 while (itr.hasNext()) {
                     SelectionKey ky = (SelectionKey) itr.next();
+                    String channelType = (String) ky.attachment();
                     if (ky.isReadable()) {
-                        node.ses.schedule(new MsgProcessor(node, (DatagramChannel) ky.channel()),0,TimeUnit.SECONDS);
+                        switch (channelType){
+                            case Constants.CHANNEL_MCAST -> node.ses.schedule(new MsgProcessor(node, (DatagramChannel) ky.channel()),0,TimeUnit.SECONDS);
+                            case Constants.CHANNEL_FILES_READ -> node.ses.schedule(new MsgProcessor(node, (SelectableChannel) ky.channel()),0,TimeUnit.SECONDS);
+                        }
+
                     }
                     else if (ky.isWritable()) {
-                        if(node.q.isEmpty())
-                            continue;
-                        node.ses.schedule(new UDPMulticastSender(node, node.q.remove(), (DatagramChannel) ky.channel(), address), 0, TimeUnit.SECONDS);
+                        switch (channelType){
+                            case Constants.CHANNEL_MCAST -> {
+                                if(!node.q.isEmpty()) {
+                                    Task task = node.q.remove();
+                                    node.ses.schedule(new UDPMulticastSender(node, task.getType(), (DatagramChannel) ky.channel(), address), task.getDelay(), TimeUnit.SECONDS);
+                                }
+                            }
+                        }
+
                     }
                     itr.remove();
-                    TimeUnit.SECONDS.sleep(1);
                 } // end of while loop  
                 if(stop)
                     break;
@@ -128,8 +145,9 @@ public class StorageNode implements Functions, Remote {
     public String join() throws RemoteException, InterruptedException, ExecutionException {
         if(inGroup) return "Already joined";
         inGroup = true;
-        q.add(Constants.MEMBERSHIP);
-        q.add(Constants.JOIN);
+        q.add(new Task(Constants.MEMBERSHIP,Constants.MEMBERSHIP_INTERVAL));
+        q.add(new Task(Constants.JOIN));
+        addMembershipEntry(this.id,this.counter);
         return "";
     }
 
@@ -138,7 +156,7 @@ public class StorageNode implements Functions, Remote {
     public String leave() throws RemoteException, ExecutionException, InterruptedException {
         if(!inGroup) return "Already left";
         inGroup = false;
-        q.add(Constants.LEAVE);
+        q.add(new Task(Constants.LEAVE));
         return "";
     }
 
@@ -176,6 +194,8 @@ public class StorageNode implements Functions, Remote {
             System.out.println("[Msg Processor] Removed member: " + id.substring(0,6));
         }
         Collections.sort(members);
+        saveMembersDisk();
+        saveLogDisk();
     }
 
     public void showMembers(){
@@ -229,4 +249,65 @@ public class StorageNode implements Functions, Remote {
     public void showKeys(){
         this.keyPathMap.forEach((k,v)-> System.out.println("key: "+ k + "\tpath: " + v));
     }
+
+    public void loadFromDisk(){
+        String directoryName = this.id;
+        File directory = new File(directoryName);
+        if (!directory.exists()){
+            directory.mkdir();
+        }
+        File members = new File((directoryName + File.separator + Constants.MEMBERS_FILENAME));
+        if(members.exists())
+            loadMembersDisk();
+        File log = new File((directoryName + File.separator + Constants.LOG_FILENAME));
+        if(log.exists())
+            loadLogDisk();
+
+        File store = new File(directoryName + File.separator + Constants.STORE_FOLDER);
+        if(!store.exists()){
+            store.mkdir();
+        }
+        //TODO load store from disk
+    }
+
+    public void saveMembersDisk(){
+        try (FileOutputStream fos = new FileOutputStream(this.id + File.separator+ Constants.MEMBERS_FILENAME);
+             ObjectOutputStream oos = new ObjectOutputStream(fos)) {
+            oos.writeObject(this.members);
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    public void loadMembersDisk(){
+        try (FileInputStream fis = new FileInputStream(this.id + File.separator+ Constants.MEMBERS_FILENAME);
+             ObjectInputStream ois = new ObjectInputStream(fis)) {
+            this.members = (List<String>) ois.readObject();
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void saveLogDisk(){
+        try (FileOutputStream fos = new FileOutputStream(this.id + File.separator+ Constants.LOG_FILENAME);
+             ObjectOutputStream oos = new ObjectOutputStream(fos)) {
+            oos.writeObject(this.membershipLog);
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    public void loadLogDisk(){
+        try (FileInputStream fis = new FileInputStream(this.id + File.separator+ Constants.LOG_FILENAME);
+             ObjectInputStream ois = new ObjectInputStream(fis)) {
+            this.membershipLog = (SortedMap<String, Integer>) ois.readObject();
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 }
