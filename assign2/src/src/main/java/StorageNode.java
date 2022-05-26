@@ -48,7 +48,6 @@ public class StorageNode implements Functions, Remote {
         addMembershipEntry(this.id, counter);
     }
 
-
     private static boolean available(int port) {
         try (Socket ignored = new Socket("localhost", port)) {
             return false;
@@ -106,12 +105,11 @@ public class StorageNode implements Functions, Remote {
                     SelectionKey ky = (SelectionKey) itr.next();
                     if (ky.isReadable()) {
                         node.ses.schedule(new MsgProcessor(node, (DatagramChannel) ky.channel()),0,TimeUnit.SECONDS);
-                    }  
+                    }
                     else if (ky.isWritable()) {
                         if(node.q.isEmpty())
                             continue;
                         node.ses.schedule(new UDPMulticastSender(node, node.q.remove(), (DatagramChannel) ky.channel(), address), 0, TimeUnit.SECONDS);
-
                     }
                     itr.remove();
                     TimeUnit.SECONDS.sleep(1);
@@ -128,6 +126,7 @@ public class StorageNode implements Functions, Remote {
 
     @Override
     public String join() throws RemoteException, InterruptedException, ExecutionException {
+        if(inGroup) return "Already joined";
         inGroup = true;
         q.add(Constants.MEMBERSHIP);
         q.add(Constants.JOIN);
@@ -137,6 +136,7 @@ public class StorageNode implements Functions, Remote {
 
     @Override
     public String leave() throws RemoteException, ExecutionException, InterruptedException {
+        if(!inGroup) return "Already left";
         inGroup = false;
         q.add(Constants.LEAVE);
         return "";
