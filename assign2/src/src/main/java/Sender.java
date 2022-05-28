@@ -5,6 +5,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.SocketChannel;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
@@ -67,14 +68,11 @@ public class Sender implements Callable {
     private String membership(){
         Message message = new Message();
         Map<String, String> map = new HashMap<>();
-        map.put("action", Constants.MEMBERSHIP);
-//        int i = 0;
-//        for(String key : node.membershipLog.keySet()){
-//            map.put(key, node.membershipLog.get(key).toString());
-//            i++;
-//            if(i >= Constants.MAX_LOG) break;
-//        }
-
+        map.put(Constants.ACTION, Constants.MEMBERSHIP);
+        for(String key : node.members){
+            MemberInfo memberInfo = node.memberInfo.get(key);
+            if(memberInfo != null)  map.put(key, memberInfo.address + ":" + memberInfo.port);
+        }
         return message.assembleMsg(map);
     }
 
@@ -88,10 +86,9 @@ public class Sender implements Callable {
             i++;
             if(i >= Constants.MAX_LOG) break;
         }
-
         String msg = message.assembleMsg(map);
         if(node.inGroup) node.qMcast.add(new Task(Constants.LOG,Constants.MEMBERSHIP_INTERVAL));
-        else System.out.println("[Sender] Stopped sending membership msg");
+        else System.out.println("[Sender] Stopped sending log msg");
         return msg;
     }
 
@@ -105,7 +102,13 @@ public class Sender implements Callable {
         map.put("address", node.localAddress);
         map.put("port", valueOf(node.membershipPort));
         String msg = message.assembleMsg(map);
-        node.counter ++;
+        node.sentJoins++;
+        if(node.sentJoins < Constants.MAX_JOIN_TRIES && node.receivedMembership < Constants.MIN_RECEIVED_MEMBERSHIP)
+            node.qMcast.add(new Task(Constants.JOIN));
+        else{
+            node.qMcast.add(new Task(Constants.LOG));
+            node.counter++;
+        }
         return msg;
     }
 

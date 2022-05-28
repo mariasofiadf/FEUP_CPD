@@ -4,7 +4,9 @@ import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SocketChannel;
+import java.util.LinkedList;
 import java.util.Map;
+import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
@@ -25,11 +27,12 @@ public class MsgProcessor implements Callable {
     }
 
     public void processJoin(Map<String, String> map){
-        if(map.get(Constants.ID).equals(node.id)) return;
         node.memberInfo.put(map.get(Constants.ID), new MemberInfo(map.get(Constants.ADDRESS),valueOf(map.get(Constants.PORT))));
         node.addMembershipEntry(map.get(Constants.ID), parseInt(map.get(Constants.COUNTER)));
+        if(map.get(Constants.ID).equals(node.id)) return;
         InetSocketAddress address = new InetSocketAddress(map.get(Constants.ADDRESS), Integer.parseInt(map.get(Constants.PORT)));
-        node.ses.schedule(new Sender(node,Constants.MEMBERSHIP,address), 0, TimeUnit.SECONDS);
+        node.qUcast.put(map.get(Constants.ID), new LinkedList<>());
+        node.qUcast.get(map.get(Constants.ID)).add(new Task(Constants.MEMBERSHIP));
     }
 
     public void processLeave(Map<String, String> map){
@@ -46,7 +49,12 @@ public class MsgProcessor implements Callable {
     }
 
     public void processMembership(Map<String, String> map){
-
+        map.forEach((k, v) -> {
+            if(!k.equalsIgnoreCase(Constants.ACTION) && !k.equalsIgnoreCase(Constants.BODY) && !k.equals(node.id))
+                if(!node.members.contains(k)) node.members.add(k);
+        });
+        if(node.receivedMembership > Constants.MIN_RECEIVED_MEMBERSHIP)
+            node.qMcast.add(new Task(Constants.JOIN));
     }
 
     public void process(String msg){
@@ -82,6 +90,7 @@ public class MsgProcessor implements Callable {
         }else if(sc != null){
             sc.read(bb);
             msg = new String(bb.array()).trim();
+            sc.close();
         }
 
         process(msg);

@@ -4,8 +4,10 @@ public final class Constants {
     public static final String LOG = "log";
     public static final String ADDRESS = "address";
     public static final String PORT = "port";
-    public static final Object SS_CHANNEL = "SS_CHANNEL";
-    public static final Object SOCKET_CHANNEL = "SOCKET_CHANNEL";
+    public static final String SS_CHANNEL = "SS_CHANNEL";
+    public static final String SOCKET_CHANNEL = "SOCKET_CHANNEL";
+    public static final Integer MAX_JOIN_TRIES = 3;
+    public static final Integer MIN_RECEIVED_MEMBERSHIP = 3;
 
     private Constants() {
         // restrict instantiation

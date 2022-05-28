@@ -2,6 +2,12 @@ public class Task {
 
     private Integer delay;
     private String type;
+    private String id;
+
+    public Task(String type, String id) {
+        this.type = type;
+        this.id = id;
+    }
 
     public Integer getDelay() {
         return delay;
