@@ -20,6 +20,10 @@ public class StorageNode implements Functions, Remote {
     int counter = 0;
     String id;
     boolean inGroup = false;
+
+    int receivedMembership = 0;
+    String localAddress;
+    Integer membershipPort;
     String IP_mcast_addr;
     Integer IP_mcast_port;
     Integer port;
@@ -29,13 +33,17 @@ public class StorageNode implements Functions, Remote {
     //hashed ids
     SortedMap<String, Integer> membershipLog;
     List<String> members;
-    Queue<Task> q = new LinkedList<>();
+    Map<String, MemberInfo> memberInfo;
+    Queue<Task> qMcast = new LinkedList<>();
 
-    StorageNode(String IP_mcast_addr, String IP_mcast_port, String id, String port) {
+    Queue<Task> qUcast = new LinkedList<>();
+
+    StorageNode(String IP_mcast_addr, String IP_mcast_port, String id, String port) throws SocketException, UnknownHostException {
         this.ses = Executors.newScheduledThreadPool(Constants.MAX_THREADS);
         this.keyPathMap = new ConcurrentHashMap<>();
         this.membershipLog = new TreeMap<>();
         this.members = new ArrayList<>();
+        this.memberInfo = new HashMap();
         this.IP_mcast_addr = IP_mcast_addr;
         this.IP_mcast_port = Integer.valueOf(IP_mcast_port);
         this.port = Integer.valueOf(port);
@@ -44,6 +52,10 @@ public class StorageNode implements Functions, Remote {
             this.id = hash.hash(id);
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
+        }
+        try(final DatagramSocket socket = new DatagramSocket()){
+            socket.connect(InetAddress.getByName("8.8.8.8"), 10002);
+            this.localAddress = socket.getLocalAddress().getHostAddress();
         }
         this.loadFromDisk();
     }
@@ -55,6 +67,16 @@ public class StorageNode implements Functions, Remote {
             return true;
         }
     }
+    private static int getFreePort(){
+        try (ServerSocket serverSocket = new ServerSocket(0)) {
+            int port = serverSocket.getLocalPort();
+            serverSocket.close();
+            return port;
+        } catch (IOException e) {
+            return -1;
+        }
+    }
+
     public static void main(String[] args) {
         if(args.length != 4)
         {
@@ -84,6 +106,14 @@ public class StorageNode implements Functions, Remote {
             int ops = datagramChannel.validOps();  
             SelectionKey selectKy = datagramChannel.register(selector, ops, Constants.CHANNEL_MCAST);
 
+            ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
+            InetSocketAddress hostAddress = new InetSocketAddress("localhost",  getFreePort());
+            serverSocketChannel.bind(hostAddress);
+            serverSocketChannel.configureBlocking(false);
+            node.membershipPort = hostAddress.getPort();
+            System.out.println(node.membershipPort);
+            serverSocketChannel.register(selector, serverSocketChannel.validOps(),Constants.CHANNEL_MEMBERSHIP);
+
             Pipe pipe = Pipe.open();
             SelectableChannel pipeChannelSource = pipe.source();
             pipeChannelSource.configureBlocking(false);
@@ -96,6 +126,7 @@ public class StorageNode implements Functions, Remote {
 
             System.out.printf("[Main] Node initialized with IP_mcast_addr=%s IP_mcast_port=%d node_id=%s Store_port=%d%n",
                     node.IP_mcast_addr, node.IP_mcast_port, node.id.substring(0,6), node.port);
+
 
             Functions functionsStub = (Functions) UnicastRemoteObject.exportObject(node,0);
             Registry registry = LocateRegistry.getRegistry();
@@ -111,18 +142,25 @@ public class StorageNode implements Functions, Remote {
                 while (itr.hasNext()) {
                     SelectionKey ky = (SelectionKey) itr.next();
                     String channelType = (String) ky.attachment();
+                    if (ky.isAcceptable()) {
+                        // The new client connection is accepted
+                        SocketChannel socketChannel = serverSocketChannel.accept();
+                        socketChannel.configureBlocking(false);
+                        // The new connection is added to a selector
+                        socketChannel.register(selector, SelectionKey.OP_READ);
+                    }
                     if (ky.isReadable()) {
                         switch (channelType){
                             case Constants.CHANNEL_MCAST -> node.ses.schedule(new MsgProcessor(node, (DatagramChannel) ky.channel()),0,TimeUnit.SECONDS);
-                            case Constants.CHANNEL_FILES_READ -> node.ses.schedule(new MsgProcessor(node, (SelectableChannel) ky.channel()),0,TimeUnit.SECONDS);
+                            //case Constants.CHANNEL_FILES_READ -> node.ses.schedule(new MsgProcessor(node, (SelectableChannel) ky.channel()),0,TimeUnit.SECONDS);
+                            case Constants.CHANNEL_MEMBERSHIP -> node.ses.schedule(new MsgProcessor(node, (SocketChannel) ky.channel()), 0, TimeUnit.SECONDS);
                         }
-
                     }
                     else if (ky.isWritable()) {
                         switch (channelType){
                             case Constants.CHANNEL_MCAST -> {
-                                if(!node.q.isEmpty()) {
-                                    Task task = node.q.remove();
+                                if(!node.qMcast.isEmpty()) {
+                                    Task task = node.qMcast.remove();
                                     node.ses.schedule(new UDPMulticastSender(node, task.getType(), (DatagramChannel) ky.channel(), address), task.getDelay(), TimeUnit.SECONDS);
                                 }
                             }
@@ -145,8 +183,8 @@ public class StorageNode implements Functions, Remote {
     public String join() throws RemoteException, InterruptedException, ExecutionException {
         if(inGroup) return "Already joined";
         inGroup = true;
-        q.add(new Task(Constants.MEMBERSHIP,Constants.MEMBERSHIP_INTERVAL));
-        q.add(new Task(Constants.JOIN));
+        qMcast.add(new Task(Constants.LOG,Constants.MEMBERSHIP_INTERVAL));
+        qMcast.add(new Task(Constants.JOIN));
         addMembershipEntry(this.id,this.counter);
         return "";
     }
@@ -156,7 +194,7 @@ public class StorageNode implements Functions, Remote {
     public String leave() throws RemoteException, ExecutionException, InterruptedException {
         if(!inGroup) return "Already left";
         inGroup = false;
-        q.add(new Task(Constants.LEAVE));
+        qMcast.add(new Task(Constants.LEAVE));
         return "";
     }
 

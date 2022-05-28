@@ -1,6 +1,10 @@
 public final class Constants {
 
 
+    public static final String LOG = "log";
+    public static final String ADDRESS = "address";
+    public static final String PORT = "port";
+
     private Constants() {
         // restrict instantiation
     }
@@ -18,7 +22,7 @@ public final class Constants {
 
     public static final String CHANNEL_MCAST = "CHANNEL_MCAST";
 
-    public static final String CHANNEL_JOIN = "CHANNEL_JOIN";
+    public static final String CHANNEL_MEMBERSHIP = "CHANNEL_MEMBERSHIP";
 
     public static final String CHANNEL_APOINT = "CHANNEL_APOINT";
 

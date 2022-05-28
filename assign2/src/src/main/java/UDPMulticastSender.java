@@ -62,7 +62,7 @@ public class UDPMulticastSender implements Callable {
 
         String msg = message.assembleMsg(map);
         System.out.println("[Mcast Sender] Sending membership msg to " + node.IP_mcast_addr + ":" + node.IP_mcast_port);
-        if(node.inGroup) node.q.add(new Task(Constants.MEMBERSHIP,Constants.MEMBERSHIP_INTERVAL));
+        if(node.inGroup) node.qMcast.add(new Task(Constants.MEMBERSHIP,Constants.MEMBERSHIP_INTERVAL));
         else System.out.println("[Mcast Sender] Stopped sending membership msg");
         return msg;
     }
@@ -74,6 +74,8 @@ public class UDPMulticastSender implements Callable {
         map.put("action", Constants.JOIN);
         map.put("id", node.id);
         map.put("counter", valueOf(node.counter));
+        map.put("address", node.localAddress);
+        map.put("port", valueOf(node.membershipPort));
         String msg = message.assembleMsg(map);
         System.out.println("[Mcast Sender] Sending join msg to "  + node.IP_mcast_addr + ":" + node.IP_mcast_port);
         node.counter ++;
