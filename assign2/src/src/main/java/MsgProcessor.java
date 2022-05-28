@@ -1,10 +1,12 @@
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
 
 import static java.lang.Integer.parseInt;
 import static java.lang.Integer.valueOf;
@@ -26,6 +28,8 @@ public class MsgProcessor implements Callable {
         if(map.get(Constants.ID).equals(node.id)) return;
         node.memberInfo.put(map.get(Constants.ID), new MemberInfo(map.get(Constants.ADDRESS),valueOf(map.get(Constants.PORT))));
         node.addMembershipEntry(map.get(Constants.ID), parseInt(map.get(Constants.COUNTER)));
+        InetSocketAddress address = new InetSocketAddress(map.get(Constants.ADDRESS), Integer.parseInt(map.get(Constants.PORT)));
+        node.ses.schedule(new Sender(node,Constants.MEMBERSHIP,address), 0, TimeUnit.SECONDS);
     }
 
     public void processLeave(Map<String, String> map){
@@ -53,7 +57,8 @@ public class MsgProcessor implements Callable {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        System.out.println("[Msg Processor] Received " + map.get(Constants.ACTION));
+        if(map.get(Constants.ACTION) == null) return;
+        System.out.println("[Receiver] Received " + map.get(Constants.ACTION));
         switch (map.get(Constants.ACTION)) {
             case Constants.JOIN -> processJoin(map);
             case Constants.LEAVE -> processLeave(map);

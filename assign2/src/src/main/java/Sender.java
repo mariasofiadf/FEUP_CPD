@@ -1,69 +1,98 @@
 import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
-import java.util.Arrays;
+import java.nio.channels.SocketChannel;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Callable;
-import java.util.concurrent.TimeUnit;
 
 import static java.lang.String.valueOf;
 
-public class UDPMulticastSender implements Callable {
+public class Sender implements Callable {
 
     String msg;
     StorageNode node;
     DatagramChannel dc;
     InetSocketAddress address;
-    public UDPMulticastSender(StorageNode node, String msg, DatagramChannel dc, InetSocketAddress address) {
+    public Sender(StorageNode node, String msg, DatagramChannel dc, InetSocketAddress address) {
             this.msg = msg;
             this.node = node;
             this.dc = dc;
             this.address = address;
     }
-    public static void sendUDPMessage(String message, String ipAddress, int port) throws IOException {
-        InetAddress group = InetAddress.getByName(ipAddress);
-        DatagramSocket socket = new DatagramSocket();
-        byte[] msg = message.getBytes();
-        DatagramPacket packet = new DatagramPacket(msg, msg.length,group,port);
-        ByteBuffer buffer = ByteBuffer.wrap(msg);
-        socket.send(packet);
-        socket.close();
+
+    public Sender(StorageNode node, String msg, InetSocketAddress address) {
+        this.node = node;
+        this.msg = msg;
+        this.address = address;
+        this.dc = null;
     }
 
-    @Override
-    public Object call() throws Exception {
+    public void sendMcast() throws IOException {
         String content = "";
         switch (msg){
             case Constants.JOIN -> content = join();
             case Constants.LEAVE -> content = leave();
-            case Constants.MEMBERSHIP -> content = membership();
+            case Constants.LOG -> content = log();
         }
         ByteBuffer bb = ByteBuffer.wrap(content.getBytes());
         dc.send(bb, address);
         bb.flip();
+        System.out.println("[Sender] Sent " + msg + " on multicast");
+    }
+
+    public void sendUcast() throws IOException {
+        String content = "";
+        System.out.println("[Sender] Connecting on unicast to " + address);
+        SocketChannel socketChannel = SocketChannel.open(address);
+        switch (msg){
+            case Constants.MEMBERSHIP -> content = membership();
+        }
+        ByteBuffer buffer = ByteBuffer.wrap(content.getBytes());
+        socketChannel.write(buffer);
+        buffer.clear();
+        System.out.println("[Sender] Sent " + msg + "on unicast to " + address);
+
+
+        socketChannel.close();
+    }
+
+    @Override
+    public Object call() throws Exception {
+        if(dc != null) sendMcast();
+        else sendUcast();
         return "";
     }
 
-    private String membership() {
+    private String membership(){
         Message message = new Message();
         Map<String, String> map = new HashMap<>();
         map.put("action", Constants.MEMBERSHIP);
+//        int i = 0;
+//        for(String key : node.membershipLog.keySet()){
+//            map.put(key, node.membershipLog.get(key).toString());
+//            i++;
+//            if(i >= Constants.MAX_LOG) break;
+//        }
+
+        return message.assembleMsg(map);
+    }
+
+    private String log() {
+        Message message = new Message();
+        Map<String, String> map = new HashMap<>();
+        map.put("action", Constants.LOG);
         int i = 0;
-        for( String key : node.membershipLog.keySet()){
+        for(String key : node.membershipLog.keySet()){
             map.put(key, node.membershipLog.get(key).toString());
             i++;
             if(i >= Constants.MAX_LOG) break;
         }
 
         String msg = message.assembleMsg(map);
-        System.out.println("[Mcast Sender] Sending membership msg to " + node.IP_mcast_addr + ":" + node.IP_mcast_port);
-        if(node.inGroup) node.qMcast.add(new Task(Constants.MEMBERSHIP,Constants.MEMBERSHIP_INTERVAL));
-        else System.out.println("[Mcast Sender] Stopped sending membership msg");
+        if(node.inGroup) node.qMcast.add(new Task(Constants.LOG,Constants.MEMBERSHIP_INTERVAL));
+        else System.out.println("[Sender] Stopped sending membership msg");
         return msg;
     }
 
@@ -77,7 +106,6 @@ public class UDPMulticastSender implements Callable {
         map.put("address", node.localAddress);
         map.put("port", valueOf(node.membershipPort));
         String msg = message.assembleMsg(map);
-        System.out.println("[Mcast Sender] Sending join msg to "  + node.IP_mcast_addr + ":" + node.IP_mcast_port);
         node.counter ++;
         return msg;
     }
@@ -91,7 +119,6 @@ public class UDPMulticastSender implements Callable {
         map.put("id", node.id);
         map.put("counter", valueOf(node.counter));
         String msg = message.assembleMsg(map);
-        System.out.println("[Mcast Sender] Sending leave msg to "  + node.IP_mcast_addr + ":" + node.IP_mcast_port);
         node.counter ++;
         return msg;
     }

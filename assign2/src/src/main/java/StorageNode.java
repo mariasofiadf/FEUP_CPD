@@ -10,11 +10,6 @@ import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.*;
 
-import static java.lang.Integer.parseInt;
-import static java.lang.String.valueOf;
-import static java.nio.channels.SelectionKey.OP_READ;
-import static java.nio.channels.SelectionKey.OP_WRITE;
-
 
 public class StorageNode implements Functions, Remote {
     int counter = 0;
@@ -108,21 +103,21 @@ public class StorageNode implements Functions, Remote {
 
             ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
             InetSocketAddress hostAddress = new InetSocketAddress("localhost",  getFreePort());
+            System.out.println(hostAddress);
             serverSocketChannel.bind(hostAddress);
             serverSocketChannel.configureBlocking(false);
-            node.membershipPort = hostAddress.getPort();
-            System.out.println(node.membershipPort);
-            serverSocketChannel.register(selector, serverSocketChannel.validOps(),Constants.CHANNEL_MEMBERSHIP);
+            SelectionKey sk = serverSocketChannel.register(selector, serverSocketChannel.validOps(), Constants.SS_CHANNEL);
 
-            Pipe pipe = Pipe.open();
-            SelectableChannel pipeChannelSource = pipe.source();
-            pipeChannelSource.configureBlocking(false);
-            pipeChannelSource.register(selector, OP_READ, Constants.CHANNEL_FILES_READ);
-            SelectableChannel pipeChannelSink = pipe.sink();
-            pipeChannelSink.configureBlocking(false);
-            pipeChannelSink.register(selector, OP_WRITE, Constants.CHANNEL_FILES_WRITE);
-            FileController fileController = new FileController(pipe);
-            fileController.run();
+
+//            Pipe pipe = Pipe.open();
+//            SelectableChannel pipeChannelSource = pipe.source();
+//            pipeChannelSource.configureBlocking(false);
+//            pipeChannelSource.register(selector, OP_READ, Constants.CHANNEL_FILES_READ);
+//            SelectableChannel pipeChannelSink = pipe.sink();
+//            pipeChannelSink.configureBlocking(false);
+//            pipeChannelSink.register(selector, OP_WRITE, Constants.CHANNEL_FILES_WRITE);
+//            FileController fileController = new FileController(pipe);
+//            fileController.run();
 
             System.out.printf("[Main] Node initialized with IP_mcast_addr=%s IP_mcast_port=%d node_id=%s Store_port=%d%n",
                     node.IP_mcast_addr, node.IP_mcast_port, node.id.substring(0,6), node.port);
@@ -135,19 +130,20 @@ public class StorageNode implements Functions, Remote {
             if(Constants.DEBUG)
                 node.ses.schedule(new DebugHelper(node),0,TimeUnit.SECONDS);
 
-            for (;;) {  
-                int noOfKeys = selector.select();  
-                Set selectedKeys = selector.selectedKeys();  
+            for (;;) {
+                Set selectedKeys = selector.selectedKeys();
                 Iterator itr = selectedKeys.iterator();
+                System.out.println("Number of keys " + selectedKeys.size());
                 while (itr.hasNext()) {
                     SelectionKey ky = (SelectionKey) itr.next();
                     String channelType = (String) ky.attachment();
-                    if (ky.isAcceptable()) {
-                        // The new client connection is accepted
+                    System.out.println("Channel type " + channelType);
+                    if (ky.isAcceptable() && channelType==Constants.SS_CHANNEL) {
+
+                        System.out.println("[Main] Accepting connection with ");
                         SocketChannel socketChannel = serverSocketChannel.accept();
                         socketChannel.configureBlocking(false);
-                        // The new connection is added to a selector
-                        socketChannel.register(selector, SelectionKey.OP_READ);
+                        socketChannel.register(selector, SelectionKey.OP_READ, Constants.CHANNEL_MEMBERSHIP);
                     }
                     if (ky.isReadable()) {
                         switch (channelType){
@@ -161,16 +157,18 @@ public class StorageNode implements Functions, Remote {
                             case Constants.CHANNEL_MCAST -> {
                                 if(!node.qMcast.isEmpty()) {
                                     Task task = node.qMcast.remove();
-                                    node.ses.schedule(new UDPMulticastSender(node, task.getType(), (DatagramChannel) ky.channel(), address), task.getDelay(), TimeUnit.SECONDS);
+                                    node.ses.schedule(new Sender(node, task.getType(), (DatagramChannel) ky.channel(), address), task.getDelay(), TimeUnit.SECONDS);
                                 }
                             }
                         }
 
                     }
                     itr.remove();
+                    TimeUnit.SECONDS.sleep(1);
                 } // end of while loop  
                 if(stop)
                     break;
+                TimeUnit.SECONDS.sleep(1);
             } // end of for loop  
 
         }catch(Exception e){

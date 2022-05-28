@@ -4,6 +4,7 @@ public final class Constants {
     public static final String LOG = "log";
     public static final String ADDRESS = "address";
     public static final String PORT = "port";
+    public static final Object SS_CHANNEL = "SS_CHANNEL";
 
     private Constants() {
         // restrict instantiation
