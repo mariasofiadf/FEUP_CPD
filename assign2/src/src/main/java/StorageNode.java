@@ -10,6 +10,11 @@ import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.*;
 
+import static java.lang.Integer.parseInt;
+import static java.lang.String.valueOf;
+import static java.nio.channels.SelectionKey.OP_READ;
+import static java.nio.channels.SelectionKey.OP_WRITE;
+
 
 public class StorageNode implements Functions, Remote {
     int counter = 0;
@@ -51,6 +56,7 @@ public class StorageNode implements Functions, Remote {
         try(final DatagramSocket socket = new DatagramSocket()){
             socket.connect(InetAddress.getByName("8.8.8.8"), 10002);
             this.localAddress = socket.getLocalAddress().getHostAddress();
+//            this.localAddress = InetAddress.getByName("localhost").getHostAddress();
         }
         this.loadFromDisk();
     }
@@ -102,12 +108,12 @@ public class StorageNode implements Functions, Remote {
             SelectionKey selectKy = datagramChannel.register(selector, ops, Constants.CHANNEL_MCAST);
 
             ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
-            InetSocketAddress hostAddress = new InetSocketAddress("localhost",  getFreePort());
-            System.out.println(hostAddress);
+            InetSocketAddress hostAddress = new InetSocketAddress(node.localAddress,  getFreePort());
             serverSocketChannel.bind(hostAddress);
             serverSocketChannel.configureBlocking(false);
-            SelectionKey sk = serverSocketChannel.register(selector, serverSocketChannel.validOps(), Constants.SS_CHANNEL);
-
+            node.membershipPort = hostAddress.getPort();
+            System.out.println(hostAddress.getAddress());
+            serverSocketChannel.register(selector, serverSocketChannel.validOps(),Constants.SS_CHANNEL);
 
 //            Pipe pipe = Pipe.open();
 //            SelectableChannel pipeChannelSource = pipe.source();
@@ -130,20 +136,20 @@ public class StorageNode implements Functions, Remote {
             if(Constants.DEBUG)
                 node.ses.schedule(new DebugHelper(node),0,TimeUnit.SECONDS);
 
-            for (;;) {
-                Set selectedKeys = selector.selectedKeys();
+            for (;;) {  
+                int noOfKeys = selector.select();  
+                Set selectedKeys = selector.selectedKeys();  
                 Iterator itr = selectedKeys.iterator();
-                System.out.println("Number of keys " + selectedKeys.size());
                 while (itr.hasNext()) {
                     SelectionKey ky = (SelectionKey) itr.next();
                     String channelType = (String) ky.attachment();
-                    System.out.println("Channel type " + channelType);
-                    if (ky.isAcceptable() && channelType==Constants.SS_CHANNEL) {
-
-                        System.out.println("[Main] Accepting connection with ");
+                    if (ky.isAcceptable() && channelType.equals(Constants.SS_CHANNEL)) {
+                        System.out.println("Accepting");
+                        // The new client connection is accepted
                         SocketChannel socketChannel = serverSocketChannel.accept();
                         socketChannel.configureBlocking(false);
-                        socketChannel.register(selector, SelectionKey.OP_READ, Constants.CHANNEL_MEMBERSHIP);
+                        // The new connection is added to a selector
+                        socketChannel.register(selector, SelectionKey.OP_READ, Constants.SOCKET_CHANNEL);
                     }
                     if (ky.isReadable()) {
                         switch (channelType){
@@ -164,11 +170,9 @@ public class StorageNode implements Functions, Remote {
 
                     }
                     itr.remove();
-                    TimeUnit.SECONDS.sleep(1);
                 } // end of while loop  
                 if(stop)
                     break;
-                TimeUnit.SECONDS.sleep(1);
             } // end of for loop  
 
         }catch(Exception e){

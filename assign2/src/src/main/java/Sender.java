@@ -1,4 +1,5 @@
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
@@ -52,9 +53,7 @@ public class Sender implements Callable {
         ByteBuffer buffer = ByteBuffer.wrap(content.getBytes());
         socketChannel.write(buffer);
         buffer.clear();
-        System.out.println("[Sender] Sent " + msg + "on unicast to " + address);
-
-
+        System.out.println("[Sender] Sent " + msg + " on unicast to " + address);
         socketChannel.close();
     }
 
