@@ -305,14 +305,41 @@ public class StorageNode implements Functions, Remote {
     public String leave() throws RemoteException, ExecutionException, InterruptedException {
         if(!inGroup) return "Already left";
         inGroup = false;
+        //TODO finished leave
         qMcast.add(new Task(Constants.LEAVE));
         return "";
     }
 
+
+    public void saveKeyVal(String key, byte[] bs){
+        String path = id + File.separator + Constants.STORE_FOLDER + File.separator + key;
+        File file = new File(path);
+        try (FileOutputStream fos = new FileOutputStream(path);
+            ObjectOutputStream oos = new ObjectOutputStream(fos)) {
+            oos.writeObject(bs);
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    
+    Callable<String> putCall(String key, byte[] bs){
+        String nodeId = getResponsibleNode(key);
+        if(nodeId.equals(id)){
+            System.out.println("[put] Inserting key " + key);
+            keyPathMap.put(key,key);
+            saveKeyVal(key, bs);
+            
+        }
+        else System.out.println("[put] Not my key ("+key+")... redirecting it to " + nodeId.substring(0,6));
+        return null;
+    };
+
     @Override
-    public String put(String key, byte[] bs) throws RemoteException {
-        ScheduledFuture scheduledFuture = ses.schedule(new Putter(this, key, bs),0, TimeUnit.SECONDS);
-        return "put not implemented yet";
+    public String put(String key, byte[] bs) throws RemoteException, InterruptedException, ExecutionException {
+        Future<Callable<String>> future = ses.submit(()->putCall(key, bs));
+        while(!future.isDone()) TimeUnit.SECONDS.sleep(1);
+        return future.get().toString();
     }
 
     @Override
@@ -391,7 +418,6 @@ public class StorageNode implements Functions, Remote {
 
     public String getResponsibleNode(String key){
         return binarySearch(this.members,0, this.members.size(),key);
-
     }
 
     public void showKeys(){
