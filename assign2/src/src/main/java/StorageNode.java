@@ -25,6 +25,8 @@ public class StorageNode implements Functions, Remote {
     String IP_mcast_addr;
     Integer IP_mcast_port;
     Integer port;
+    String putKey;
+    Byte[] putValue;
     ScheduledExecutorService ses;
     // <key, path>
     ConcurrentHashMap<String, String> keyPathMap;
@@ -361,6 +363,22 @@ public class StorageNode implements Functions, Remote {
         }
     }
 
+    Callable<String> sendPut = () -> {
+        DatagramSocket socket = new DatagramSocket();
+        InetAddress group = InetAddress.getByName(IP_mcast_addr);
+
+        Message message = new Message();
+        Map<String, Byte[]> map = new HashMap<>();
+        map.put(putKey, putValue);
+        byte[] buf = message.assembleMsg(map).getBytes();
+
+        DatagramPacket packet = new DatagramPacket(buf, buf.length, group, IP_mcast_port);
+        socket.send(packet);
+        socket.close();
+        
+        return "Looking for the right node!";
+    };
+
     String putCall(String key, byte[] bs){
         String nodeId = getResponsibleNode(key);
         if(nodeId.equals(id)){
@@ -371,6 +389,12 @@ public class StorageNode implements Functions, Remote {
         }
         else {
             System.out.println("[put] Not my key ("+key+")... redirecting it to " + nodeId.substring(0,6));
+
+            putKey = key;
+            putValue = bs;
+            ses.schedule(mainListener, 0 ,TimeUnit.SECONDS);
+            ses.submit(sendPut);
+            //TimeUnit.SECONDS.sleep(1);
         }
         return "Put " + key;
     };
