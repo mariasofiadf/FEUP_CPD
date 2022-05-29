@@ -87,42 +87,6 @@ public class StorageNode implements Functions, Remote {
             
             StorageNode node = new StorageNode(args[0], args[1], args[2], args[3]);
 
-            Selector selector = Selector.open();
-
-            ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
-            InetSocketAddress hostAddress = new InetSocketAddress(node.localAddress,  getFreePort());
-            serverSocketChannel.bind(hostAddress);
-            serverSocketChannel.configureBlocking(false);
-            node.membershipPort = hostAddress.getPort();
-            serverSocketChannel.register(selector, serverSocketChannel.validOps(),Constants.SS_CHANNEL);
-
-
-            InetAddress group = InetAddress.getByName(node.IP_mcast_addr);
-            final InetSocketAddress address = new InetSocketAddress(group, node.IP_mcast_port);
-
-            final NetworkInterface ni;
-            try (MulticastSocket temp = new MulticastSocket()) {
-                ni = temp.getNetworkInterface();
-            }
-
-            DatagramChannel datagramChannel = DatagramChannel.open(StandardProtocolFamily.INET)
-                    .setOption(StandardSocketOptions.SO_REUSEADDR, true)
-                    .bind(new InetSocketAddress(node.IP_mcast_port))
-                    .setOption(StandardSocketOptions.IP_MULTICAST_IF, ni);
-            datagramChannel.configureBlocking(false);
-            datagramChannel.join(group, ni);
-            int ops = datagramChannel.validOps();
-            datagramChannel.register(selector, ops, Constants.CHANNEL_MCAST);
-//            Pipe pipe = Pipe.open();
-//            SelectableChannel pipeChannelSource = pipe.source();
-//            pipeChannelSource.configureBlocking(false);
-//            pipeChannelSource.register(selector, OP_READ, Constants.CHANNEL_FILES_READ);
-//            SelectableChannel pipeChannelSink = pipe.sink();
-//            pipeChannelSink.configureBlocking(false);
-//            pipeChannelSink.register(selector, OP_WRITE, Constants.CHANNEL_FILES_WRITE);
-//            FileController fileController = new FileController(pipe);
-//            fileController.run();
-
             System.out.printf("[Main] Node initialized with IP_mcast_addr=%s IP_mcast_port=%d node_id=%s Store_port=%d%n",
                     node.IP_mcast_addr, node.IP_mcast_port, node.id.substring(0,6), node.port);
 
@@ -134,75 +98,116 @@ public class StorageNode implements Functions, Remote {
             if(Constants.DEBUG)
                 node.ses.schedule(new DebugHelper(node),0,TimeUnit.SECONDS);
 
-            for (;;) {  
-                int noOfKeys = selector.select();  
-                Set selectedKeys = selector.selectedKeys();  
-                Iterator itr = selectedKeys.iterator();
-                while (itr.hasNext()) {
-                    SelectionKey ky = (SelectionKey) itr.next();
-                    String channelType = (String) ky.attachment();
-                    switch (channelType){
-                        case Constants.SS_CHANNEL -> handleSSChannel(node,ky,serverSocketChannel,selector);
-                        case Constants.CHANNEL_MCAST -> handleMcastChannel(node,ky, address);
-                        case Constants.CHANNEL_MEMBERSHIP -> handleMembershipChannel(node,ky);
-                        case Constants.CHANNEL_UCAST -> handleUcastChannel(node, ky);
-                    }
-                    itr.remove();
-                } // end of while loop
-                if(stop)
-                    break;
-            } // end of for loop  
-
         }catch(Exception e){
             System.err.println("\n[Main] Server exception: " + e);
             e.printStackTrace();
         }
     }
 
-    private static void handleUcastChannel(StorageNode node, SelectionKey ky) throws InterruptedException {
-        ScheduledFuture scheduledFuture = null;
-        if(ky.isReadable()){
-             scheduledFuture = node.ses.schedule(new MsgProcessor(node, (SocketChannel) ky.channel()), 0, TimeUnit.SECONDS);
+    //Listens for mcast messages
+    Callable mcastListener = () -> {
+        byte[] buf = new byte[256];
+        MulticastSocket socket = new MulticastSocket(IP_mcast_port);
+        InetAddress group = InetAddress.getByName(IP_mcast_addr);
+        socket.joinGroup(group);
+        System.out.println("Started listening to mcast");
+        while (true) {
+            DatagramPacket packet = new DatagramPacket(buf, buf.length);
+            socket.receive(packet);
+            String msg = new String(packet.getData(), 0, packet.getLength());
+            ses.submit(() -> {process(msg);});
+            if ("end".equals(msg)) break;
         }
+        System.out.println("closed");
+        socket.leaveGroup(group);
+        socket.close();
+        return null;
+    };
+
+    Callable process(String msg){
+        Message message = new Message();
+        Map<String, String> map;
+        try {
+            map = message.disassembleMsb(msg);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        if(map.get(Constants.ACTION) == null) return null;
+        System.out.println("Received " + map.get(Constants.ACTION));
+        switch (map.get(Constants.ACTION)) {
+            case Constants.JOIN -> processJoin(map);
+            case Constants.LEAVE -> processLeave(map);
+//            case Constants.LOG -> processLog(map);
+//            case Constants.MEMBERSHIP -> processMembership(map);
+            default -> {}
+        }
+        return null;
     }
 
-    private static void handleSSChannel(StorageNode node, SelectionKey ky, ServerSocketChannel serverSocketChannel, Selector selector) throws IOException {
-        if(ky.isAcceptable()){
-            SocketChannel socketChannel = serverSocketChannel.accept();
-            socketChannel.configureBlocking(false);
-            socketChannel.register(selector, SelectionKey.OP_READ, Constants.CHANNEL_UCAST);
-            node.receivedMembership++;
-        }
-        if((node.receivedMembership >= Constants.MIN_RECEIVED_MEMBERSHIP)){
-            serverSocketChannel.close();
-            node.qMcast.add(new Task(Constants.LOG,Constants.MEMBERSHIP_INTERVAL));
-            node.addMembershipEntry(node.id,node.counter);
-        }
+    Callable processLeave(Map<String, String> map) {
+        if(map.get(Constants.ID).equals(id)) return null;
+        ses.submit(()->memberInfo.remove(map.get(Constants.ID)));
+        ses.submit(()->addMembershipEntry(map.get(Constants.ID), parseInt(map.get(Constants.COUNTER))));
+        return null;
     }
 
-    private static void handleMembershipChannel(StorageNode node, SelectionKey ky) {
-        if(ky.isReadable()){
-            node.ses.schedule(new MsgProcessor(node, (SocketChannel) ky.channel()), 0, TimeUnit.SECONDS);
-        }
+    Callable processJoin(Map<String, String> map) {
+        if(map.get(Constants.ID).equals(id)) return null;
+        ses.submit(() -> memberInfo.put(map.get(Constants.ID), new MemberInfo(map.get(Constants.ADDRESS), Integer.valueOf(map.get(Constants.PORT)))));
+        ses.submit(() -> addMembershipEntry(map.get(Constants.ID), parseInt(map.get(Constants.COUNTER))));
+        //Address to send membership to
+        InetSocketAddress address = new InetSocketAddress(map.get(Constants.ADDRESS), Integer.parseInt(map.get(Constants.PORT)));
+        return null;
     }
 
-    private static void handleMcastChannel(StorageNode node, SelectionKey ky, InetSocketAddress address) {
-        if (!node.inGroup) return;
-        if(ky.isReadable()){
-            node.ses.schedule(new MsgProcessor(node, (DatagramChannel) ky.channel()),0,TimeUnit.SECONDS);
+    //Listens for membership messages after join
+    Callable<String> membershipListener = () -> {
+        return "Task's execution";
+    };
+
+    Callable<String> sendJoin = () -> {
+        DatagramSocket socket = new DatagramSocket();
+        InetAddress group = InetAddress.getByName(IP_mcast_addr);
+
+        Message message = new Message();
+        Map<String, String> map = new HashMap<>();
+        map.put("action", Constants.JOIN);
+        map.put("id", id);
+        map.put("counter", valueOf(counter));
+        map.put("address", localAddress);
+        map.put("port", valueOf(membershipPort));
+
+        byte[] buf = message.assembleMsg(map).getBytes();
+        DatagramPacket packet = new DatagramPacket(buf, buf.length, group, IP_mcast_port);
+        socket.send(packet);
+        socket.close();
+        sentJoins++;
+        if (Constants.DEBUG) System.out.println("Sent Join");
+        return "Sent Join";
+    };
+
+    Callable<String> join = () -> {
+        ses.schedule(mcastListener, 0 ,TimeUnit.SECONDS);
+        ses.schedule(membershipListener,0,TimeUnit.SECONDS);
+        while (sentJoins < Constants.MAX_JOIN_TRIES && receivedMembership < Constants.MIN_RECEIVED_MEMBERSHIP){
+            ses.schedule(sendJoin, 0, TimeUnit.SECONDS);
+            TimeUnit.SECONDS.sleep(1);
         }
-        if(ky.isWritable() && !node.qMcast.isEmpty()){
-            Task task = node.qMcast.remove();
-            node.ses.schedule(new Sender(node, task.getType(), (DatagramChannel) ky.channel(), address), task.getDelay(), TimeUnit.SECONDS);
-        }
-    }
+        if(sentJoins >= Constants.MAX_JOIN_TRIES)
+            System.out.println("Sent 3 joins and didn't get 3 memberships back... Inside cluster");
+        if(receivedMembership >= Constants.MIN_RECEIVED_MEMBERSHIP)
+            System.out.println("Received 3 memberships back. Inside cluster!");
+        addMembershipEntry(id,counter);
+        return "Joined cluster";
+    };
 
     @Override
     public String join() throws RemoteException, InterruptedException, ExecutionException {
-        if(inGroup) return "Already joined";
+        if(inGroup) return "Already in cluster";
         inGroup = true;
-        qMcast.add(new Task(Constants.JOIN));
-        return "";
+        ScheduledFuture<String> future = ses.schedule(join, 0, TimeUnit.SECONDS);
+        while (!future.isDone()) TimeUnit.SECONDS.sleep(1);
+        return future.get();
     }
 
 
@@ -231,21 +236,22 @@ public class StorageNode implements Functions, Remote {
     }
 
     public void addMembershipEntry(String id, Integer counter){
+        System.out.println("add member entry");
         if(membershipLog.containsKey(id) && membershipLog.get(id) < counter){
             membershipLog.replace(id, counter);
-            System.out.println("[Msg Processor] Updated log entry: " + id.substring(0,6) + " " + counter);
+            System.out.println("Updated log entry: " + id.substring(0,6) + " " + counter);
         }
         else if (!membershipLog.containsKey(id)){
             membershipLog.put(id, counter);
-            System.out.println("[Msg Processor] Added log entry: " + id.substring(0,6) + " " + counter);
+            System.out.println("Added log entry: " + id.substring(0,6) + " " + counter);
         }
         if(!members.contains(id) && counter % 2 == 0){
             members.add(id);
-            System.out.println("[Msg Processor] Added member: " + id.substring(0,6));
+            System.out.println("Added member: " + id.substring(0,6));
         }
         if(members.contains(id) && counter % 2 != 0){
             members.remove(id);
-            System.out.println("[Msg Processor] Removed member: " + id.substring(0,6));
+            System.out.println("Removed member: " + id.substring(0,6));
         }
         Collections.sort(members);
         saveMembersDisk();
