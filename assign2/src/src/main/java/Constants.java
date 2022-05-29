@@ -35,14 +35,13 @@ public final class Constants {
     public static final String CHANNEL_FILES_READ ="CHANNEL_FILES_READ" ;
 
     public static final Integer MEMBERSHIP_INTERVAL = 2;
+    public static final String PUT = "put";
+    public static final Object KEY = "key";
 
     public static String MEMBERS_FILENAME = "members";
     public static String LOG_FILENAME = "log";
     public static String STORE_FOLDER = "store";
 
     public static Boolean DEBUG = true;
-
-
-
 
 }

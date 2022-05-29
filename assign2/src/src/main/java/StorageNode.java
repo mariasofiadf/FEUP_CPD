@@ -32,9 +32,6 @@ public class StorageNode implements Functions, Remote {
     SortedMap<String, Integer> membershipLog;
     List<String> members;
     Map<String, MemberInfo> memberInfo;
-    Queue<Task> qMcast = new LinkedList<>();
-
-    Map<String, Queue<Task>> qUcast = new HashMap<>();
     Integer sentJoins = 0;
     StorageNode(String IP_mcast_addr, String IP_mcast_port, String id, String port) throws SocketException, UnknownHostException {
         this.ses = Executors.newScheduledThreadPool(Constants.MAX_THREADS);
@@ -141,8 +138,21 @@ public class StorageNode implements Functions, Remote {
             case Constants.LEAVE -> processLeave(map);
             case Constants.LOG -> processLog(map);
             case Constants.MEMBERSHIP -> processMembership(map);
+            case Constants.PUT -> processPut(map);
             default -> {}
         }
+        return null;
+    }
+
+    //action put
+    //key 2133122131
+    //
+    //body
+    //Hello World!
+    //asfasfasf
+
+    private Object processPut(Map<String, String> map) {
+        saveKeyVal(map.get(Constants.KEY), map.get(Constants.BODY).getBytes());
         return null;
     }
 
@@ -204,7 +214,8 @@ public class StorageNode implements Functions, Remote {
         socketChannel.close();
         if (Constants.DEBUG) System.out.println("Sent Membership to " + address.toString());
         return null;
-    };
+    }
+
     //Listens for membership messages after join
     Callable<String> membershipListener = () -> {
         ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
@@ -227,6 +238,34 @@ public class StorageNode implements Functions, Remote {
         }
         return "Task's execution";
     };
+
+
+    //Listens for membership messages after join
+    Callable<String> mainListener = () -> {
+        ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
+        serverSocketChannel.socket().bind(new InetSocketAddress(localAddress,port));
+        if(Constants.DEBUG) System.out.println("Starting to listen for messages on " + serverSocketChannel.getLocalAddress());
+        while (true){
+            SocketChannel sc = serverSocketChannel.accept();
+            ses.submit(()->{
+                String msg;
+                ByteBuffer bb = ByteBuffer.allocate(1000);
+                try {
+                    sc.read(bb);
+                    msg = new String(bb.array()).trim();
+                    sc.close();
+                    ses.submit(()->process(msg));
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            if("lol".equals("end")) break;
+        }
+        return "Task's execution";
+    };
+
+
+
 
     Callable<String> sendLog() throws IOException {
         DatagramSocket socket = new DatagramSocket();
