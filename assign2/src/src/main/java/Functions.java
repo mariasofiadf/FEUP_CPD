@@ -8,6 +8,7 @@ public interface Functions extends Remote {
         String leave() throws RemoteException, ExecutionException, InterruptedException;
         String put(String key, byte[] value) throws RemoteException, InterruptedException, ExecutionException;
 
-        String get(int key) throws RemoteException, ExecutionException, InterruptedException;
-        String delete(int key) throws RemoteException;
+        String get(String key) throws RemoteException, ExecutionException, InterruptedException;
+
+    String delete(int key) throws RemoteException;
 }

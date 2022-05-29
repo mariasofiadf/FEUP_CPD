@@ -316,14 +316,13 @@ public class StorageNode implements Functions, Remote {
         File file = new File(path);
         try (FileOutputStream fos = new FileOutputStream(path);
             ObjectOutputStream oos = new ObjectOutputStream(fos)) {
-            oos.writeObject(bs);
+            oos.write(bs);
         } catch (IOException ex) {
             ex.printStackTrace();
         }
     }
 
-    
-    Callable<String> putCall(String key, byte[] bs){
+    String putCall(String key, byte[] bs){
         String nodeId = getResponsibleNode(key);
         if(nodeId.equals(id)){
             System.out.println("[put] Inserting key " + key);
@@ -331,20 +330,61 @@ public class StorageNode implements Functions, Remote {
             saveKeyVal(key, bs);
             
         }
-        else System.out.println("[put] Not my key ("+key+")... redirecting it to " + nodeId.substring(0,6));
-        return null;
+        else {
+            System.out.println("[put] Not my key ("+key+")... redirecting it to " + nodeId.substring(0,6));
+        }
+        return "Put " + key;
     };
 
     @Override
     public String put(String key, byte[] bs) throws RemoteException, InterruptedException, ExecutionException {
-        Future<Callable<String>> future = ses.submit(()->putCall(key, bs));
-        while(!future.isDone()) TimeUnit.SECONDS.sleep(1);
-        return future.get().toString();
+        Future<String> future = ses.submit(()-> {
+            return putCall(key, bs);}
+        );
+        while(!future.isDone()) TimeUnit.MILLISECONDS.sleep(100);
+        return future.get();
     }
 
+
+    public String readKeyVal(String key){
+        byte[] bs;
+        String value = "";
+        String path = id + File.separator + Constants.STORE_FOLDER + File.separator + key;
+        File file = new File(path);
+        try (FileInputStream fis = new FileInputStream(path);
+            ObjectInputStream ois = new ObjectInputStream(fis)) {
+            bs = ois.readAllBytes();
+            value = new String(bs);
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+        return value;
+    }
+
+    String getCall(String key){
+        String nodeId = getResponsibleNode(key);
+        String value = "";
+        if(nodeId.equals(id)){
+            System.out.println("Getting key " + key);
+            System.out.println(keyPathMap);
+            if(keyPathMap.get(key) != null){
+                value = readKeyVal(key);
+                System.out.println("Value : " + value);
+            }
+        }
+        else {
+            System.out.println("[put] Not my key ("+key+")... redirecting it to " + nodeId.substring(0,6));
+        }
+        return null;
+    };
+
     @Override
-    public String get(int key) throws RemoteException, ExecutionException, InterruptedException {
-        return "get not implemented yet";
+    public String get(String key) throws RemoteException, ExecutionException, InterruptedException {
+        Future<String> future = ses.submit(()->{
+            return getCall(key);}
+            );
+        while(!future.isDone()) TimeUnit.SECONDS.sleep(1);
+        return future.get();
     }
 
     @Override
