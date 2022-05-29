@@ -1,5 +1,6 @@
 import java.io.*;
 import java.net.*;
+import java.nio.ByteBuffer;
 import java.nio.channels.*;
 import java.rmi.Remote;
 import java.rmi.registry.Registry;
@@ -41,6 +42,7 @@ public class StorageNode implements Functions, Remote {
         this.membershipLog = new TreeMap<>();
         this.members = new ArrayList<>();
         this.memberInfo = new HashMap();
+        this.membershipPort = getFreePort();
         this.IP_mcast_addr = IP_mcast_addr;
         this.IP_mcast_port = Integer.valueOf(IP_mcast_port);
         this.port = Integer.valueOf(port);
@@ -138,10 +140,20 @@ public class StorageNode implements Functions, Remote {
             case Constants.JOIN -> processJoin(map);
             case Constants.LEAVE -> processLeave(map);
 //            case Constants.LOG -> processLog(map);
-//            case Constants.MEMBERSHIP -> processMembership(map);
+            case Constants.MEMBERSHIP -> processMembership(map);
             default -> {}
         }
         return null;
+    }
+
+    private void processMembership(Map<String, String> map) {
+        map.forEach((k, v) -> {
+            if(!k.equalsIgnoreCase(Constants.ACTION) && !k.equalsIgnoreCase(Constants.BODY) && !k.equals(id))
+                if(!members.contains(k)) {
+                    System.out.println("Added member: " + k.substring(0,6));
+                    members.add(k);
+                }
+        });
     }
 
     Callable processLeave(Map<String, String> map) {
@@ -151,17 +163,60 @@ public class StorageNode implements Functions, Remote {
         return null;
     }
 
+
     Callable processJoin(Map<String, String> map) {
         if(map.get(Constants.ID).equals(id)) return null;
+        if(members.contains(map.get(Constants.ID))) return null;
         ses.submit(() -> memberInfo.put(map.get(Constants.ID), new MemberInfo(map.get(Constants.ADDRESS), Integer.valueOf(map.get(Constants.PORT)))));
         ses.submit(() -> addMembershipEntry(map.get(Constants.ID), parseInt(map.get(Constants.COUNTER))));
         //Address to send membership to
         InetSocketAddress address = new InetSocketAddress(map.get(Constants.ADDRESS), Integer.parseInt(map.get(Constants.PORT)));
+        try {
+            ses.submit(sendMembership(address));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
         return null;
     }
 
+    Callable<String> sendMembership (InetSocketAddress address) throws IOException {
+        SocketChannel socketChannel = SocketChannel.open();
+        socketChannel.connect(address);
+
+        Message message = new Message();
+        Map<String, String> map = new HashMap<>();
+        map.put("action", Constants.MEMBERSHIP);
+        for(String key : members){
+            MemberInfo memberInfo = this.memberInfo.get(key);
+            if(memberInfo != null)  map.put(key, memberInfo.address + ":" + memberInfo.port);
+        }
+
+        byte[] buf = message.assembleMsg(map).getBytes();
+        socketChannel.write(ByteBuffer.wrap(buf));
+        socketChannel.close();
+        if (Constants.DEBUG) System.out.println("Sent Membership to " + address.toString());
+        return null;
+    };
     //Listens for membership messages after join
     Callable<String> membershipListener = () -> {
+        ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
+        serverSocketChannel.socket().bind(new InetSocketAddress(localAddress,membershipPort));
+        if(Constants.DEBUG) System.out.println("Starting to listen for membership messages on " + serverSocketChannel.getLocalAddress());
+        while (receivedMembership < Constants.MIN_RECEIVED_MEMBERSHIP){
+            SocketChannel sc = serverSocketChannel.accept();
+            ses.submit(()->{
+                String msg;
+                ByteBuffer bb = ByteBuffer.allocate(1000);
+                try {
+                    sc.read(bb);
+                    msg = new String(bb.array()).trim();
+                    sc.close();
+                    ses.submit(()->process(msg));
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+        }
         return "Task's execution";
     };
 
@@ -197,7 +252,8 @@ public class StorageNode implements Functions, Remote {
             System.out.println("Sent 3 joins and didn't get 3 memberships back... Inside cluster");
         if(receivedMembership >= Constants.MIN_RECEIVED_MEMBERSHIP)
             System.out.println("Received 3 memberships back. Inside cluster!");
-        addMembershipEntry(id,counter);
+        ses.submit(()->addMembershipEntry(id,counter));
+        ses.submit(() -> memberInfo.put(id, new MemberInfo(localAddress, port)));
         return "Joined cluster";
     };
 
@@ -236,7 +292,6 @@ public class StorageNode implements Functions, Remote {
     }
 
     public void addMembershipEntry(String id, Integer counter){
-        System.out.println("add member entry");
         if(membershipLog.containsKey(id) && membershipLog.get(id) < counter){
             membershipLog.replace(id, counter);
             System.out.println("Updated log entry: " + id.substring(0,6) + " " + counter);
