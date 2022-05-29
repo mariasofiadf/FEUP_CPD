@@ -139,11 +139,18 @@ public class StorageNode implements Functions, Remote {
         switch (map.get(Constants.ACTION)) {
             case Constants.JOIN -> processJoin(map);
             case Constants.LEAVE -> processLeave(map);
-//            case Constants.LOG -> processLog(map);
+            case Constants.LOG -> processLog(map);
             case Constants.MEMBERSHIP -> processMembership(map);
             default -> {}
         }
         return null;
+    }
+
+    private void processLog(Map<String, String> map) {
+        map.forEach((k, v) -> {
+            if(!k.equalsIgnoreCase(Constants.ACTION) && !k.equalsIgnoreCase(Constants.BODY) && !k.equals(id))
+                addMembershipEntry(k,parseInt(v));
+        });
     }
 
     private void processMembership(Map<String, String> map) {
@@ -154,6 +161,7 @@ public class StorageNode implements Functions, Remote {
                     members.add(k);
                 }
         });
+        receivedMembership++;
     }
 
     Callable processLeave(Map<String, String> map) {
@@ -220,6 +228,31 @@ public class StorageNode implements Functions, Remote {
         return "Task's execution";
     };
 
+    Callable<String> sendLog() throws IOException {
+        DatagramSocket socket = new DatagramSocket();
+        InetAddress group = InetAddress.getByName(IP_mcast_addr);
+
+        Message message = new Message();
+        Map<String, String> map = new HashMap<>();
+        map.put("action", Constants.LOG);
+        int i = 0;
+        for(String key : membershipLog.keySet()){
+            map.put(key, membershipLog.get(key).toString());
+            i++;
+            if(i >= Constants.MAX_LOG) break;
+        }
+        String msg = message.assembleMsg(map);
+        byte[] buf = message.assembleMsg(map).getBytes();
+        DatagramPacket packet = new DatagramPacket(buf, buf.length, group, IP_mcast_port);
+        socket.send(packet);
+        socket.close();
+
+        if (Constants.DEBUG) System.out.println("Sent Log");
+        if(inGroup) ses.schedule(()->sendLog(), 1, TimeUnit.SECONDS);
+        else if (Constants.DEBUG) System.out.println("Stopped sending log msg");
+        return null;
+    };
+
     Callable<String> sendJoin = () -> {
         DatagramSocket socket = new DatagramSocket();
         InetAddress group = InetAddress.getByName(IP_mcast_addr);
@@ -245,15 +278,16 @@ public class StorageNode implements Functions, Remote {
         ses.schedule(mcastListener, 0 ,TimeUnit.SECONDS);
         ses.schedule(membershipListener,0,TimeUnit.SECONDS);
         while (sentJoins < Constants.MAX_JOIN_TRIES && receivedMembership < Constants.MIN_RECEIVED_MEMBERSHIP){
-            ses.schedule(sendJoin, 0, TimeUnit.SECONDS);
+            ses.submit(sendJoin);
             TimeUnit.SECONDS.sleep(1);
         }
         if(sentJoins >= Constants.MAX_JOIN_TRIES)
             System.out.println("Sent 3 joins and didn't get 3 memberships back... Inside cluster");
         if(receivedMembership >= Constants.MIN_RECEIVED_MEMBERSHIP)
             System.out.println("Received 3 memberships back. Inside cluster!");
-        ses.submit(()->addMembershipEntry(id,counter));
+        ses.submit(() -> addMembershipEntry(id,counter));
         ses.submit(() -> memberInfo.put(id, new MemberInfo(localAddress, port)));
+        ses.schedule(() -> sendLog(),1,TimeUnit.SECONDS);
         return "Joined cluster";
     };
 
