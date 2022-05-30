@@ -377,14 +377,14 @@ public class StorageNode implements Functions, Remote {
     String putCall(String key, byte[] bs){
         String nodeId = getResponsibleNode(key);
         if(nodeId.equals(id)){
-            System.out.println("[put] Inserting key " + key);
+            System.out.println("Inserting key " + key);
             keyPathMap.put(key,key);
             saveKeyVal(key, bs);
             
         }
         else {
             ses.submit(()->sendPut(nodeId, key, bs));
-            System.out.println("[put] Not my key ("+key+")... redirecting it to " + nodeId.substring(0,6));
+            System.out.println("Not my key ("+key+")... redirecting it to " + nodeId.substring(0,6));
         }
         return "Put " + key;
     }
@@ -399,16 +399,12 @@ public class StorageNode implements Functions, Remote {
         map.put("action", Constants.PUT);
         map.put(Constants.KEY, key);
         map.put(Constants.BODY, new String(bs));
-        System.out.println("sending put" + map);
         byte[] buf = message.assembleMsg(map).getBytes();
-        System.out.println(message.assembleMsg(map));
         socketChannel.write(ByteBuffer.wrap(buf));
         socketChannel.close();
         if (Constants.DEBUG) System.out.println("Sent Put to " + address.toString());
         return null;
     }
-
-    ;
 
     @Override
     public String put(String key, byte[] bs) throws RemoteException, InterruptedException, ExecutionException {
@@ -503,6 +499,11 @@ public class StorageNode implements Functions, Remote {
     String binarySearch(List<String> arr, int l, int r, String x)
     {
         if(arr.size() == 1) return arr.get(0);
+        if(arr.size() == 2){
+            if(arr.get(0).compareTo(x) > 0)
+                return arr.get(0);
+            else return arr.get(1);
+        }
         if (r >= l) {
             int mid = l + (r - l) / 2;
 
@@ -510,23 +511,17 @@ public class StorageNode implements Functions, Remote {
                 return arr.get(0);
             if(mid <= 0)
                 return arr.get(1);
-            // If the element is present at the
-            // middle itself
+
             if (arr.get(mid).compareTo(x) > 0  && arr.get(mid-1).compareTo(x) < 0){
                 return arr.get(mid);
             }
-            // If element is smaller than mid, then
-            // it can only be present in left subarray
+
             if (arr.get(mid).compareTo(x) > 0)
                 return binarySearch(arr, l, mid - 1, x);
 
-            // Else the element can only be present
-            // in right subarray
             return binarySearch(arr, mid + 1, r, x);
         }
 
-        // We reach here when element is not present
-        // in array
         return "";
     }
 
@@ -556,6 +551,7 @@ public class StorageNode implements Functions, Remote {
             store.mkdir();
         }
         //TODO load store from disk
+        //TODO load couter from disk
     }
 
     public void saveMembersDisk(){
