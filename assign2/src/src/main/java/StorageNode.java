@@ -105,20 +105,27 @@ public class StorageNode implements Functions, Remote {
 
     //Listens for mcast messages
     Callable mcastListener = () -> {
-        byte[] buf = new byte[256];
-        MulticastSocket socket = new MulticastSocket(IP_mcast_port);
-        InetAddress group = InetAddress.getByName(IP_mcast_addr);
-        socket.joinGroup(group);
+        byte[] buf = new byte[1000];
+        DatagramSocket socket = new DatagramSocket(null); // unbound
+        socket.setReuseAddress(true); // set reuse address before binding
+        socket.bind(new InetSocketAddress(IP_mcast_port)); // bind
+
+        String addr = new String(IP_mcast_addr);
+        InetAddress mcastaddr = InetAddress.getByName(addr);
+        InetSocketAddress group = new InetSocketAddress(mcastaddr, 0);
+        NetworkInterface netIf = NetworkInterface.getByName("lo");
+        socket.joinGroup(group, netIf);
+
         System.out.println("Started listening to mcast");
         while (true) {
             DatagramPacket packet = new DatagramPacket(buf, buf.length);
             socket.receive(packet);
             String msg = new String(packet.getData(), 0, packet.getLength());
-            ses.submit(() -> {process(msg);});
+            ses.schedule(() -> process(msg),0,TimeUnit.SECONDS);
             if ("end".equals(msg)) break;
         }
         System.out.println("closed");
-        socket.leaveGroup(group);
+        socket.leaveGroup(group,netIf);
         socket.close();
         return null;
     };
@@ -144,13 +151,6 @@ public class StorageNode implements Functions, Remote {
         return null;
     }
 
-    //action put
-    //key 2133122131
-    //
-    //body
-    //Hello World!
-    //asfasfasf
-
     private Object processPut(Map<String, String> map) {
         saveKeyVal(map.get(Constants.KEY), map.get(Constants.BODY).getBytes());
         return null;
@@ -167,7 +167,7 @@ public class StorageNode implements Functions, Remote {
         map.forEach((k, v) -> {
             if(!k.equalsIgnoreCase(Constants.ACTION) && !k.equalsIgnoreCase(Constants.BODY) && !k.equals(id))
                 if(!members.contains(k)) {
-                    System.out.println("Added member: " + k.substring(0,6));
+                    System.out.println("Added member: " + k);
                     members.add(k);
                 }
         });
@@ -191,13 +191,13 @@ public class StorageNode implements Functions, Remote {
         InetSocketAddress address = new InetSocketAddress(map.get(Constants.ADDRESS), Integer.parseInt(map.get(Constants.PORT)));
         try {
             ses.submit(sendMembership(address));
-        } catch (IOException e) {
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
         return null;
     }
 
-    Callable<String> sendMembership (InetSocketAddress address) throws IOException {
+    Callable<String> sendMembership (InetSocketAddress address) throws IOException, InterruptedException {
         SocketChannel socketChannel = SocketChannel.open();
         socketChannel.connect(address);
 
@@ -210,6 +210,7 @@ public class StorageNode implements Functions, Remote {
         }
 
         byte[] buf = message.assembleMsg(map).getBytes();
+        TimeUnit.MILLISECONDS.sleep((new Random()).nextInt(0,100));
         socketChannel.write(ByteBuffer.wrap(buf));
         socketChannel.close();
         if (Constants.DEBUG) System.out.println("Sent Membership to " + address.toString());
@@ -268,8 +269,12 @@ public class StorageNode implements Functions, Remote {
 
 
     Callable<String> sendLog() throws IOException {
-        DatagramSocket socket = new DatagramSocket();
-        InetAddress group = InetAddress.getByName(IP_mcast_addr);
+        DatagramSocket socket = new DatagramSocket(new InetSocketAddress(0));
+        NetworkInterface outgoingIf = NetworkInterface.getByName("lo");
+        socket.setOption(StandardSocketOptions.IP_MULTICAST_IF, outgoingIf);
+
+        InetAddress mcastaddr = InetAddress.getByName(IP_mcast_addr);
+        InetSocketAddress dest = new InetSocketAddress(mcastaddr, IP_mcast_port);
 
         Message message = new Message();
         Map<String, String> map = new HashMap<>();
@@ -282,19 +287,24 @@ public class StorageNode implements Functions, Remote {
         }
         String msg = message.assembleMsg(map);
         byte[] buf = message.assembleMsg(map).getBytes();
-        DatagramPacket packet = new DatagramPacket(buf, buf.length, group, IP_mcast_port);
+        DatagramPacket packet = new DatagramPacket(buf, buf.length, dest);
         socket.send(packet);
         socket.close();
 
         if (Constants.DEBUG) System.out.println("Sent Log");
-        if(inGroup) ses.schedule(()->sendLog(), 1, TimeUnit.SECONDS);
+        if(inGroup) ses.schedule(() -> sendLog(),1000 + 1000*(1/membershipLog.size()),TimeUnit.MILLISECONDS);
         else if (Constants.DEBUG) System.out.println("Stopped sending log msg");
         return null;
     };
 
     Callable<String> sendJoin = () -> {
-        DatagramSocket socket = new DatagramSocket();
-        InetAddress group = InetAddress.getByName(IP_mcast_addr);
+        DatagramSocket socket = new DatagramSocket(new InetSocketAddress(0));
+        NetworkInterface outgoingIf = NetworkInterface.getByName("lo");
+        socket.setOption(StandardSocketOptions.IP_MULTICAST_IF, outgoingIf);
+
+        InetAddress mcastaddr = InetAddress.getByName(IP_mcast_addr);
+        InetSocketAddress dest = new InetSocketAddress(mcastaddr, IP_mcast_port);
+
 
         Message message = new Message();
         Map<String, String> map = new HashMap<>();
@@ -305,7 +315,7 @@ public class StorageNode implements Functions, Remote {
         map.put("port", valueOf(membershipPort));
 
         byte[] buf = message.assembleMsg(map).getBytes();
-        DatagramPacket packet = new DatagramPacket(buf, buf.length, group, IP_mcast_port);
+        DatagramPacket packet = new DatagramPacket(buf, buf.length, dest);
         socket.send(packet);
         socket.close();
         sentJoins++;
@@ -326,7 +336,7 @@ public class StorageNode implements Functions, Remote {
             System.out.println("Received 3 memberships back. Inside cluster!");
         ses.submit(() -> addMembershipEntry(id,counter));
         ses.submit(() -> memberInfo.put(id, new MemberInfo(localAddress, port)));
-        ses.schedule(() -> sendLog(),1,TimeUnit.SECONDS);
+        ses.schedule(() -> sendLog(),1000+(new Random()).nextInt(0,100),TimeUnit.MILLISECONDS);
         return "Joined cluster";
     };
 
@@ -344,8 +354,8 @@ public class StorageNode implements Functions, Remote {
     public String leave() throws RemoteException, ExecutionException, InterruptedException {
         if(!inGroup) return "Already left";
         inGroup = false;
-        //TODO finished leave
-        qMcast.add(new Task(Constants.LEAVE));
+        //TODO finish leave
+//        qMcast.add(new Task(Constants.LEAVE));
         return "";
     }
 
@@ -448,6 +458,7 @@ public class StorageNode implements Functions, Remote {
             members.remove(id);
             System.out.println("Removed member: " + id.substring(0,6));
         }
+        members = new ArrayList<>(new HashSet<>(members));
         Collections.sort(members);
         saveMembersDisk();
         saveLogDisk();
@@ -456,7 +467,7 @@ public class StorageNode implements Functions, Remote {
     public void showMembers(){
         System.out.println("Members");
         for (String member : members) {
-            System.out.println("[Main] " + member.substring(0,6));
+            System.out.println("[Main] " + member);
         }
     }
 

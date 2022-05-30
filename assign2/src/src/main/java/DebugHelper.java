@@ -13,14 +13,13 @@ public class DebugHelper implements Callable {
         Scanner scanner = new Scanner(System.in);
         char cmd; boolean stop = false;
         while(!stop){
-            System.out.println("cmd: ");
             cmd = scanner.next().charAt(0);
             switch (Character.toLowerCase(cmd)){
                 case 'q': stop = true;
                 case 'j': node.join(); break;
                 case 'l': node.leave(); break;
                 case 'm': node.showMembers(); break;
-                case 'x': node.showMembershipLog(); break;
+                case 'h': node.showMembershipLog(); break;
                 case 'k': node.showKeys(); break;
                 case 'p': node.put("5xafas", "Hello World!".getBytes()); break;
                 case 'g': node.get("5xafas"); break;
