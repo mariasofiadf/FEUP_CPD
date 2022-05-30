@@ -8,6 +8,8 @@ public final class Constants {
     public static final String SOCKET_CHANNEL = "SOCKET_CHANNEL";
     public static final Integer MAX_JOIN_TRIES = 3;
     public static final Integer MIN_RECEIVED_MEMBERSHIP = 3;
+    public static final String GET = "get";
+    public static final String GET_RESP = "GET_RESP";
 
     private Constants() {
         // restrict instantiation

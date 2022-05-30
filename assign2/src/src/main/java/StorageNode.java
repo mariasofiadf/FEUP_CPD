@@ -121,7 +121,7 @@ public class StorageNode implements Functions, Remote {
             DatagramPacket packet = new DatagramPacket(buf, buf.length);
             socket.receive(packet);
             String msg = new String(packet.getData(), 0, packet.getLength());
-            ses.schedule(() -> process(msg),0,TimeUnit.SECONDS);
+            ses.schedule(() -> process(msg, null),0,TimeUnit.SECONDS);
             if ("end".equals(msg)) break;
         }
         System.out.println("closed");
@@ -130,7 +130,7 @@ public class StorageNode implements Functions, Remote {
         return null;
     };
 
-    Callable process(String msg){
+    Callable process(String msg, SocketChannel sc){
         Message message = new Message();
         Map<String, String> map;
         try {
@@ -139,16 +139,44 @@ public class StorageNode implements Functions, Remote {
             throw new RuntimeException(e);
         }
         if(map.get(Constants.ACTION) == null) return null;
-        System.out.println("Received " + map.get(Constants.ACTION));
+        System.out.println("Received " + map.get(Constants.ACTION) + " " + sc);
         switch (map.get(Constants.ACTION)) {
             case Constants.JOIN -> processJoin(map);
             case Constants.LEAVE -> processLeave(map);
             case Constants.LOG -> processLog(map);
             case Constants.MEMBERSHIP -> processMembership(map);
             case Constants.PUT -> processPut(map);
+            case Constants.GET -> {
+                try {
+                    processGet(map,sc);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
             default -> {}
         }
+        try {
+            sc.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        System.out.println("process done");
         return null;
+    }
+
+    private void processGet(Map<String, String> map, SocketChannel sc) throws IOException {
+        Message message = new Message();
+        String key = map.get(Constants.KEY);
+        String value = "";
+        if(keyPathMap.get(key) != null){
+            value = readKeyVal(key);
+        }
+        Map<String, String> mapResp = new HashMap<>();
+        mapResp.put(Constants.ACTION,Constants.GET_RESP);
+        mapResp.put(Constants.BODY, value);
+        byte[] buf = message.assembleMsg(mapResp).getBytes();
+        sc.write(ByteBuffer.wrap(buf));
+        System.out.println("Sent get: " + mapResp);
     }
 
     private Object processPut(Map<String, String> map) {
@@ -233,8 +261,7 @@ public class StorageNode implements Functions, Remote {
                 try {
                     sc.read(bb);
                     msg = new String(bb.array()).trim();
-                    sc.close();
-                    ses.submit(()->process(msg));
+                    ses.submit(()->process(msg, sc));
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -257,12 +284,13 @@ public class StorageNode implements Functions, Remote {
                 try {
                     sc.read(bb);
                     msg = new String(bb.array()).trim();
-                    sc.close();
-                    ses.submit(()->process(msg));
+                    System.out.println("main listen " + sc);
+                    process(msg,sc);
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
             });
+            TimeUnit.SECONDS.sleep(2);
             if("lol".equals("end")) break;
         }
         return "Task's execution";
@@ -442,10 +470,45 @@ public class StorageNode implements Functions, Remote {
             }
         }
         else {
-            System.out.println("[put] Not my key ("+key+")... redirecting it to " + nodeId.substring(0,6));
+            System.out.println("Not my key ("+key+")... requesting it from " + nodeId.substring(0,6));
+            try {
+                value = requestValue(nodeId, key);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
         }
-        return null;
-    };
+        return value;
+    }
+
+    private String requestValue(String nodeId, String key) throws Exception {
+        SocketChannel socketChannel = SocketChannel.open();
+        InetSocketAddress address = new InetSocketAddress(memberInfo.get(nodeId).address, memberInfo.get(nodeId).port);
+        socketChannel.connect(address);
+
+        Message message = new Message();
+        Map<String, String> map = new HashMap<>();
+        map.put("action", Constants.GET);
+        map.put(Constants.KEY, key);
+
+        byte[] buf = message.assembleMsg(map).getBytes();
+        socketChannel.write(ByteBuffer.wrap(buf));
+
+        ByteBuffer bb = ByteBuffer.allocate(1000);
+        Map<String, String> mapResp;
+        socketChannel.configureBlocking(true);
+        while (true){
+            socketChannel.read(bb);
+            String resp = new String(bb.array()).trim();
+            mapResp = message.disassembleMsb(resp);
+            if(mapResp.get(Constants.ACTION).equals(Constants.GET_RESP)) break;
+            TimeUnit.SECONDS.sleep(1);
+        }
+        System.out.println("Got value: " + mapResp.get(Constants.BODY));
+        socketChannel.close();
+        return mapResp.get(Constants.BODY);
+    }
+
+    ;
 
     @Override
     public String get(String key) throws RemoteException, ExecutionException, InterruptedException {
