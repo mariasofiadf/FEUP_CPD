@@ -36,7 +36,7 @@ public final class Constants {
 
     public static final Integer MEMBERSHIP_INTERVAL = 2;
     public static final String PUT = "put";
-    public static final Object KEY = "key";
+    public static final String KEY = "key";
 
     public static String MEMBERS_FILENAME = "members";
     public static String LOG_FILENAME = "log";

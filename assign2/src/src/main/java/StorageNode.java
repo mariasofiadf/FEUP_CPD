@@ -152,7 +152,11 @@ public class StorageNode implements Functions, Remote {
     }
 
     private Object processPut(Map<String, String> map) {
-        saveKeyVal(map.get(Constants.KEY), map.get(Constants.BODY).getBytes());
+        System.out.println(map);
+        String key = map.get(Constants.KEY); byte[] val = map.get(Constants.BODY).getBytes();
+        System.out.println("Saving key value: " + key + "->" + map.get(Constants.BODY));
+        keyPathMap.put(key,key);
+        saveKeyVal(key, val);
         return null;
     }
 
@@ -380,10 +384,32 @@ public class StorageNode implements Functions, Remote {
             
         }
         else {
+            ses.submit(()->sendPut(nodeId, key, bs));
             System.out.println("[put] Not my key ("+key+")... redirecting it to " + nodeId.substring(0,6));
         }
         return "Put " + key;
-    };
+    }
+
+    Callable<String> sendPut(String nodeId, String key, byte[] bs) throws IOException {
+        SocketChannel socketChannel = SocketChannel.open();
+        InetSocketAddress address = new InetSocketAddress(memberInfo.get(nodeId).address, memberInfo.get(nodeId).port);
+        socketChannel.connect(address);
+
+        Message message = new Message();
+        Map<String, String> map = new HashMap<>();
+        map.put("action", Constants.PUT);
+        map.put(Constants.KEY, key);
+        map.put(Constants.BODY, new String(bs));
+        System.out.println("sending put" + map);
+        byte[] buf = message.assembleMsg(map).getBytes();
+        System.out.println(message.assembleMsg(map));
+        socketChannel.write(ByteBuffer.wrap(buf));
+        socketChannel.close();
+        if (Constants.DEBUG) System.out.println("Sent Put to " + address.toString());
+        return null;
+    }
+
+    ;
 
     @Override
     public String put(String key, byte[] bs) throws RemoteException, InterruptedException, ExecutionException {

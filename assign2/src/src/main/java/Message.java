@@ -5,17 +5,13 @@ import java.util.Scanner;
 public class Message {
     public String assembleMsg(Map<String,String>map){
         StringBuilder msg = new StringBuilder();
-        map.forEach((k,v) ->{
-            if(k.equalsIgnoreCase("body")){
-                msg.append("\n\n");
-                msg.append(v);
-            }
-            else{
+        map.forEach((k,v) -> {
+            if (!k.equalsIgnoreCase("body")) {
                 msg.append(k).append(" ").append(v).append("\n");
             }
-        }
-        );
-
+        });
+        msg.append("\n\n");
+        msg.append(map.get(Constants.BODY));
         return msg.toString();
     }
 
@@ -38,7 +34,8 @@ public class Message {
         StringBuilder body = new StringBuilder();
         while (scanner.hasNextLine() && emptyLineCount == 2){
             String line = scanner.nextLine();
-            body.append(line).append("\n");
+            body.append(line);
+            if(scanner.hasNextLine()) body.append("\n");
         }
         map.put(Constants.BODY, body.toString());
         scanner.close();

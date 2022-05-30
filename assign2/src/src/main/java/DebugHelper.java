@@ -21,7 +21,7 @@ public class DebugHelper implements Callable {
                 case 'm': node.showMembers(); break;
                 case 'h': node.showMembershipLog(); break;
                 case 'k': node.showKeys(); break;
-                case 'p': node.put("5xafas", "Hello World!".getBytes()); break;
+                case 'p': node.put("5xafas", "Hello World!\nMy name is...".getBytes()); break;
                 case 'g': node.get("5xafas"); break;
                 default: System.out.println("Invalid key");
             }
