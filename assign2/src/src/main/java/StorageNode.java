@@ -152,7 +152,6 @@ public class StorageNode implements Functions, Remote {
     }
 
     private Object processPut(Map<String, String> map) {
-        System.out.println(map);
         String key = map.get(Constants.KEY); byte[] val = map.get(Constants.BODY).getBytes();
         System.out.println("Saving key value: " + key + "->" + map.get(Constants.BODY));
         keyPathMap.put(key,key);
@@ -441,7 +440,6 @@ public class StorageNode implements Functions, Remote {
         String value = "";
         if(nodeId.equals(id)){
             System.out.println("Getting key " + key);
-            System.out.println(keyPathMap);
             if(keyPathMap.get(key) != null){
                 value = readKeyVal(key);
                 System.out.println("Value : " + value);
