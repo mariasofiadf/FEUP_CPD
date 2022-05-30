@@ -208,6 +208,7 @@ public class StorageNode implements Functions, Remote {
     Callable processLeave(Map<String, String> map) {
         if(map.get(Constants.ID).equals(id)) return null;
         ses.submit(()->memberInfo.remove(map.get(Constants.ID)));
+        System.out.println("LEAVE: " + map);
         ses.submit(()->addMembershipEntry(map.get(Constants.ID), parseInt(map.get(Constants.COUNTER))));
         return null;
     }
@@ -381,13 +382,40 @@ public class StorageNode implements Functions, Remote {
     }
 
 
+    Callable<String> sendLeave = () -> {
+        DatagramSocket socket = new DatagramSocket();
+        InetAddress group = InetAddress.getByName(IP_mcast_addr);
+
+        Message message = new Message();
+        Map<String, String> map = new HashMap<>();
+        map.put(Constants.ACTION, Constants.LEAVE);
+        map.put(Constants.ID, id);
+        map.put(Constants.COUNTER, valueOf(counter));
+
+        byte[] buf = message.assembleMsg(map).getBytes();
+        DatagramPacket packet = new DatagramPacket(buf, buf.length, group, IP_mcast_port);
+        socket.send(packet);
+        socket.close();
+        if (Constants.DEBUG) System.out.println("Sent Leave");
+        return "Sent Leave";
+    };
+
+    Callable<String> leave = () -> {
+        System.out.println("Leaving");
+        ses.submit(sendLeave);
+
+        ses.submit(() -> addMembershipEntry(id,counter));
+        ses.submit(() -> memberInfo.remove(id, new MemberInfo(localAddress, port)));
+        return "Left cluster";
+    };
+
     @Override
     public String leave() throws RemoteException, ExecutionException, InterruptedException {
         if(!inGroup) return "Already left";
         inGroup = false;
-        //TODO finish leave
-//        qMcast.add(new Task(Constants.LEAVE));
-        return "";
+        ScheduledFuture<String> future = ses.schedule(leave, 0, TimeUnit.SECONDS);
+        while (!future.isDone()) TimeUnit.SECONDS.sleep(1);
+        return future.get();
     }
 
 

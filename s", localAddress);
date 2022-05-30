@@ -1,0 +1,376 @@
+[33mcommit 506bf91ca32af9e07a707dd2e7b11b6288ac4dcb[m[33m ([m[1;36mHEAD -> [m[1;32mchange[m[33m)[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Sun May 29 17:47:22 2022 +0100
+
+    added main listener for put/get
+
+[33mcommit fc6a12fd6411b8870343be9069d82ab04dd8749b[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Sun May 29 17:30:49 2022 +0100
+
+    put/get work on onwer node
+
+[33mcommit 978e77119ad3cb4ec533df4ecba79e39330ae595[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Sun May 29 17:01:28 2022 +0100
+
+    put on own node
+
+[33mcommit 09ea8effd34f1aa79b1e6d5a8d58ab21538dd848[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Sun May 29 16:30:39 2022 +0100
+
+    membership service done
+
+[33mcommit 08dd72d4340d306fd80b0afbc3e2a8fe1ce41bb2[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Sun May 29 15:04:48 2022 +0100
+
+    membership message done (missing log)
+
+[33mcommit b6105d003eeab26df22982bb3064302548ab92c4[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Sun May 29 13:01:45 2022 +0100
+
+    redoing join/leave
+
+[33mcommit 687e60a4a1ae96464e279572a36510d53a4de272[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Sun May 29 00:04:39 2022 +0100
+
+    membership and log almost done
+
+[33mcommit 063e0b64a248e6d23833ca1255a5738fa9f44bea[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Sat May 28 18:58:42 2022 +0100
+
+    advancements in unicast
+
+[33mcommit 7f22d130a196062a4e7d4f3754e9141d4a7487c6[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Sat May 28 18:26:02 2022 +0100
+
+    something went wrong
+
+[33mcommit 002ea45b93d795c11f3f21ffe598c47fac9e3ba0[m[33m ([m[1;31morigin/file_system[m[33m)[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Sat May 28 17:14:08 2022 +0100
+
+    added memberinfo and refactored msgprocessor
+
+[33mcommit 506187c304a59c977391c402aad206b999633892[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Sat May 28 11:44:17 2022 +0100
+
+    added gitignore
+
+[33mcommit 7d240d8dc1d1ffd3722fab623bc203bf64a0ea7d[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Thu May 26 17:12:24 2022 +0100
+
+    saving info in filesystem (log, members)
+
+[33mcommit e90c661fc8e08863de596218c5d05e1f0a8ca4a8[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Thu May 26 11:30:49 2022 +0100
+
+    minor changes
+
+[33mcommit e4232578da83952520eb372d496c014974256b4a[m
+Merge: 066bb5b 9d6a69b
+Author: Maria Sofia Diogo Figueiredo <up201904675@fe.up.pt>
+Date:   Tue May 24 21:03:57 2022 +0000
+
+    Merge branch 'IO' into 'main'
+    
+    non blocking IO for mcast
+    
+    See merge request cpd/2122/t02/g09!6
+
+[33mcommit 9d6a69b7da47f61ced9ee10ed4ed7b569daacb7c[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Tue May 24 22:02:06 2022 +0100
+
+    Removed dead code
+
+[33mcommit df706e91109411fb54d077d737b49d86f2f9763f[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Tue May 24 21:29:50 2022 +0100
+
+    mcast ops done
+
+[33mcommit 8d335990f58903745c6d407309897ef23cd87059[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Tue May 24 21:14:56 2022 +0100
+
+    mcast receiver done
+
+[33mcommit 066bb5bc1fc22bbe2b4955202e93997b8318155f[m
+Author: ritaramada <anaritaramada@gmail.com>
+Date:   Tue May 24 09:54:50 2022 +0100
+
+    value in byte[]
+
+[33mcommit e1d6c79d6b1e9fb7dfc7dac288b56a93da76832c[m
+Merge: 41bcf1f 0c66817
+Author: Maria Sofia Diogo Figueiredo <up201904675@fe.up.pt>
+Date:   Tue May 24 07:40:48 2022 +0000
+
+    Merge branch 'put' into 'main'
+    
+    Put
+    
+    See merge request cpd/2122/t02/g09!5
+
+[33mcommit 0c66817b5f8ee8e48b0ffcb333981f12234fe1a3[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Mon May 23 21:49:45 2022 +0100
+
+    put knows responsible node and puts if key belongs to current node
+
+[33mcommit cc5aeedd2b01330ab3ab0659e0ce3d1e91e149f8[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Mon May 23 20:50:43 2022 +0100
+
+    binary search working for strings
+
+[33mcommit 765b9bf1b7c17c94b7d85531f02ed6732a9edd11[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Mon May 23 20:40:29 2022 +0100
+
+    initial binary search
+
+[33mcommit ebf92b03294e10c25ed355a8853d74fd9f2e0082[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Mon May 23 20:16:59 2022 +0100
+
+    improved python scrip with build
+
+[33mcommit 03567afcac92f3371f049ba0b38a6a3c4ea6b0ba[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Mon May 23 20:15:53 2022 +0100
+
+    improved python script
+
+[33mcommit 428db39f25fd76f4ca77c74292083b6c7cef532a[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Mon May 23 19:57:59 2022 +0100
+
+    error
+
+[33mcommit 41bcf1f0f9c92b1b70d7ca74ba752136b082418e[m
+Merge: 84273a5 8a07b49
+Author: Maria Sofia Diogo Figueiredo <up201904675@fe.up.pt>
+Date:   Fri May 20 15:58:21 2022 +0000
+
+    Merge branch 'improvements' into 'main'
+    
+    added missing files
+    
+    See merge request cpd/2122/t02/g09!4
+
+[33mcommit 8a07b493d191c9399ed014a149f1f2e88eb1d8b4[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Fri May 20 16:57:43 2022 +0100
+
+    added missing files
+
+[33mcommit 84273a5d8a105437b6e82f64b634beb15244c515[m
+Merge: fb0ea62 9830df4
+Author: Maria Sofia Diogo Figueiredo <up201904675@fe.up.pt>
+Date:   Fri May 20 12:07:55 2022 +0000
+
+    Merge branch 'improvements' into 'main'
+    
+    node cmd line args done. started unicast receiver
+    
+    See merge request cpd/2122/t02/g09!3
+
+[33mcommit 9830df4445115ca9c024ffe0c954b5a55315c2b7[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Fri May 20 13:06:50 2022 +0100
+
+    node cmd line args done. started unicast receiver
+
+[33mcommit fb0ea62eaa7df3994d83d0df82e24774af9a45c4[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Thu May 19 23:08:10 2022 +0100
+
+    python script
+
+[33mcommit 4dad25e45295dcb416539ae5e0c8f96c820f787f[m
+Merge: 3fbcbca cafa8ca
+Author: Maria Sofia Diogo Figueiredo <up201904675@fe.up.pt>
+Date:   Thu May 19 22:01:39 2022 +0000
+
+    Merge branch 'membership' into 'main'
+    
+    Membership
+    
+    See merge request cpd/2122/t02/g09!2
+
+[33mcommit cafa8cadeaa0bd24dab38e005ecc84c4bf62c0f6[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Thu May 19 23:01:01 2022 +0100
+
+    periodic membership messages working. leave working.
+
+[33mcommit 12186a2b0e43c3fc612adc7586ccba6a22429c3a[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Thu May 19 12:12:46 2022 +0100
+
+    minor change on cmd line messages
+
+[33mcommit 51ff27cdc2d79074fe33a65882828f18871ed652[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Thu May 19 12:04:39 2022 +0100
+
+    added leave and membership
+
+[33mcommit 3fbcbca722117bc4de161d564b024d19e59252d3[m
+Merge: 9e6ffb3 0b9405b
+Author: Maria Sofia Diogo Figueiredo <up201904675@fe.up.pt>
+Date:   Thu May 19 09:53:30 2022 +0000
+
+    Merge branch 'join' into 'main'
+    
+    Join implemented and triggers membership log update
+    
+    See merge request cpd/2122/t02/g09!1
+
+[33mcommit 0b9405be1855e04a9606b7ea2fd26ba7c3530eed[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Wed May 18 23:18:06 2022 +0100
+
+    Join implemented and triggers membership log update
+
+[33mcommit 9e6ffb39f6158175987d63b575dd91ca34fa9cbe[m
+Merge: 978a31d 2946f15
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Wed May 18 20:13:30 2022 +0100
+
+    Merge remote-tracking branch 'origin/main' into main
+    
+    # Conflicts:
+    #       assign2/src/.gradle/7.4/checksums/checksums.lock
+    #       assign2/src/.gradle/7.4/checksums/md5-checksums.bin
+    #       assign2/src/.gradle/7.4/checksums/sha1-checksums.bin
+    #       assign2/src/.gradle/7.4/executionHistory/executionHistory.bin
+    #       assign2/src/.gradle/7.4/executionHistory/executionHistory.lock
+    #       assign2/src/.gradle/7.4/fileHashes/fileHashes.bin
+    #       assign2/src/.gradle/7.4/fileHashes/fileHashes.lock
+    #       assign2/src/.gradle/7.4/fileHashes/resourceHashesCache.bin
+    #       assign2/src/.gradle/buildOutputCleanup/buildOutputCleanup.lock
+    #       assign2/src/.gradle/buildOutputCleanup/cache.properties
+    #       assign2/src/.gradle/buildOutputCleanup/outputFiles.bin
+    #       assign2/src/.gradle/file-system.probe
+
+[33mcommit 978a31db166d73c4de14fcdbbceab747cfe41ba9[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Wed May 18 20:12:47 2022 +0100
+
+    Message assembler and disassembler done
+
+[33mcommit 2946f155f836794ad0018d6577c9d7746b347168[m
+Author: unknown <up201904996@fe.up.pt>
+Date:   Wed May 18 10:41:27 2022 +0100
+
+    just added steps for join
+
+[33mcommit 4ef63eb55cb6f3aff94235ed2c69ab80ee05a98d[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Tue May 17 10:37:02 2022 +0100
+
+    Advancements in node receive and send
+    2
+
+[33mcommit c912de7b2878461c7be902f0c3a7d39bfe205009[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Tue May 17 08:37:08 2022 +0100
+
+    removed keyvalue file
+
+[33mcommit b2a417bff639bbd6b02a223b75b82f3172f96d39[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Mon May 16 21:40:20 2022 +0100
+
+    added scheduling system for getter
+
+[33mcommit 2d01a67e9288c143a70bdde70b576c2c9917187c[m
+Merge: 009ac64 4e8261a
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Mon May 16 21:04:47 2022 +0100
+
+    Merge remote-tracking branch 'origin/main' into main
+
+[33mcommit 009ac643c61c87856b1346f42ded3a5729bb08de[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Mon May 16 21:03:40 2022 +0100
+
+    project 2 initial files
+
+[33mcommit 4e8261a608aa362e8b1ca6fdacd06d3c29a506be[m[33m ([m[1;33mtag: P1REPORT[m[33m)[m
+Author: Luísa Araújo <lmpa.pt@gmail.com>
+Date:   Mon Mar 28 21:43:01 2022 +0100
+
+    final
+
+[33mcommit 7feff7262f43219c4d8cfe9f23d3a5a429c41d17[m
+Author: Rita Ramada <anaritaramada@gmail.com>
+Date:   Mon Mar 28 16:08:30 2022 +0100
+
+    Algorithms description
+
+[33mcommit 35c2022dbc12ded74f8c68102ba38beefba1dbd9[m
+Author: Maria Sofia Figueiredo <up201904675@fe.up.pt>
+Date:   Sun Mar 27 20:26:49 2022 +0100
+
+    Added analysis
+
+[33mcommit e07256b9ba8d6ed61e6212a16bb542d7607af1f0[m
+Author: Luísa Araújo <lmpa.pt@gmail.com>
+Date:   Sun Mar 27 14:03:29 2022 +0100
+
+    so retirei a legenda
+
+[33mcommit 6a5955b82aff7add07041c169c736e1defc8cb05[m
+Author: Luísa Araújo <lmpa.pt@gmail.com>
+Date:   Sun Mar 27 14:01:16 2022 +0100
+
+    pdf
+
+[33mcommit 69c7215d22b856efc6b5dc65511efeceffbb1a5f[m
+Author: Luísa Araújo <lmpa.pt@gmail.com>
+Date:   Thu Mar 24 15:13:25 2022 +0000
+
+    pdf report
+
+[33mcommit da37b60933a4aeb8ce78a56fdb09735ebd7baedb[m
+Author: Luísa Araújo <lmpa.pt@gmail.com>
+Date:   Thu Mar 24 15:12:01 2022 +0000
+
+    report
+
+[33mcommit f8babbe3fdcaf79aea141592c6deff306a5ec4c6[m
+Author: Ana Rita Antunes Ramada <up201904565@fe.up.pt>
+Date:   Tue Mar 22 09:03:57 2022 +0000
+
+    Update README.md
+
+[33mcommit ab9e1188d72ddd7d70892e9e9663e526bcc73ae2[m
+Author: ritaramada <anaritaramada@gmail.com>
+Date:   Tue Mar 22 09:02:18 2022 +0000
+
+    Names and emails
+
+[33mcommit d97964357356f7edca7fa5ead3076f6dff0e0fb6[m
+Author: ritaramada <anaritaramada@gmail.com>
+Date:   Tue Mar 22 08:54:40 2022 +0000
+
+    Tests done
+
+[33mcommit 30275f3aad32e5363599801988e97e0970f70fbf[m
+Author: Pedro Ferreira Souto <pfs@fe.up.pt>
+Date:   Tue Mar 8 20:06:20 2022 +0000
+
+    Setup directory structure for both assignments
