@@ -10,6 +10,7 @@ public final class Constants {
     public static final Integer MIN_RECEIVED_MEMBERSHIP = 3;
     public static final String GET = "get";
     public static final String GET_RESP = "GET_RESP";
+    public static final String MEMBERSHIP_PORT = "MEMBERSHIP_PORT";
 
     private Constants() {
         // restrict instantiation
