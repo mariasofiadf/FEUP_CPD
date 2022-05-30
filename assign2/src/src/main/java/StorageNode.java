@@ -117,7 +117,7 @@ public class StorageNode implements Functions, Remote {
         socket.joinGroup(group, netIf);
 
         System.out.println("Started listening to mcast");
-        while (true) {
+        while (inGroup) {
             DatagramPacket packet = new DatagramPacket(buf, buf.length);
             socket.receive(packet);
             String msg = new String(packet.getData(), 0, packet.getLength());
@@ -268,6 +268,7 @@ public class StorageNode implements Functions, Remote {
                 }
             });
         }
+        System.out.println("Stopped listening for membership messages");
         return "Task's execution";
     };
 
@@ -277,7 +278,7 @@ public class StorageNode implements Functions, Remote {
         ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
         serverSocketChannel.socket().bind(new InetSocketAddress(localAddress,port));
         if(Constants.DEBUG) System.out.println("Starting to listen for messages on " + serverSocketChannel.getLocalAddress());
-        while (true){
+        while (inGroup){
             SocketChannel sc = serverSocketChannel.accept();
             ses.submit(()->{
                 String msg;
@@ -402,10 +403,10 @@ public class StorageNode implements Functions, Remote {
 
     Callable<String> leave = () -> {
         System.out.println("Leaving");
-        ses.submit(sendLeave);
 
-        ses.submit(() -> addMembershipEntry(id,counter));
+        ses.submit(() -> addMembershipEntry(id,++counter));
         ses.submit(() -> memberInfo.remove(id, new MemberInfo(localAddress, port)));
+        ses.submit(sendLeave);
         return "Left cluster";
     };
 
