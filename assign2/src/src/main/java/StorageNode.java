@@ -113,7 +113,7 @@ public class StorageNode implements Functions, Remote {
         String addr = new String(IP_mcast_addr);
         InetAddress mcastaddr = InetAddress.getByName(addr);
         InetSocketAddress group = new InetSocketAddress(mcastaddr, 0);
-        NetworkInterface netIf = NetworkInterface.getByName("lo");
+        NetworkInterface netIf = NetworkInterface.getByName(Constants.INTERFACE);
         socket.joinGroup(group, netIf);
 
         System.out.println("Started listening to mcast");
@@ -301,7 +301,7 @@ public class StorageNode implements Functions, Remote {
 
     Callable<String> sendLog() throws IOException {
         DatagramSocket socket = new DatagramSocket(new InetSocketAddress(0));
-        NetworkInterface outgoingIf = NetworkInterface.getByName("lo");
+        NetworkInterface outgoingIf = NetworkInterface.getByName(Constants.INTERFACE);
         socket.setOption(StandardSocketOptions.IP_MULTICAST_IF, outgoingIf);
 
         InetAddress mcastaddr = InetAddress.getByName(IP_mcast_addr);
@@ -329,7 +329,7 @@ public class StorageNode implements Functions, Remote {
 
     Callable<String> sendJoin = () -> {
         DatagramSocket socket = new DatagramSocket(new InetSocketAddress(0));
-        NetworkInterface outgoingIf = NetworkInterface.getByName("lo");
+        NetworkInterface outgoingIf = NetworkInterface.getByName(Constants.INTERFACE);
         socket.setOption(StandardSocketOptions.IP_MULTICAST_IF, outgoingIf);
 
         InetAddress mcastaddr = InetAddress.getByName(IP_mcast_addr);
