@@ -192,10 +192,9 @@ public class StorageNode implements Functions, Remote {
     }
 
     private void processMembership(Map<String, String> map) {
-        System.out.println("Received membership" + map);
         receivedMembership++;
         map.forEach((k, v) -> {
-            if(!k.equalsIgnoreCase(Constants.ACTION) && !k.equalsIgnoreCase(Constants.BODY))
+            if(!k.equalsIgnoreCase(Constants.ACTION) && !k.equalsIgnoreCase(Constants.BODY)){
                 if(!members.contains(k)) {
                     System.out.println("Added member: " + k.substring(0,6));
                     members.add(k);
@@ -204,6 +203,7 @@ public class StorageNode implements Functions, Remote {
                     String[] parts = v.split(":");
                     memberInfo.put(k, new MemberInfo(parts[0],Integer.parseInt(parts[1]),Integer.parseInt(parts[2])));
                 }
+            }
         });
     }
 
@@ -216,29 +216,37 @@ public class StorageNode implements Functions, Remote {
 
 
     Callable processJoin(Map<String, String> map) {
-        System.out.println(map.get(Constants.ID).substring(0,6) + " joined the cluster");
         if(map.get(Constants.ID).equals(id)) return null;
+        System.out.println(map.get(Constants.ID).substring(0,6) + " joined the cluster");
 //        if(members.contains(map.get(Constants.ID))) return null;
+        System.out.println("AAAAAAAAAAAAAAAAA");
         ses.submit(() -> memberInfo.put(map.get(Constants.ID), new MemberInfo(map.get(Constants.ADDRESS),
                 Integer.valueOf(map.get(Constants.MEMBERSHIP_PORT)),Integer.valueOf(map.get(Constants.PORT)))));
+
+        System.out.println("AAAAAAAAAAAAAAAAA");
         ses.submit(() -> addMembershipEntry(map.get(Constants.ID), parseInt(map.get(Constants.COUNTER))));
         //Address to send membership to
+        System.out.println("AAAAAAAAAAAAAAAAA");
         InetSocketAddress address = new InetSocketAddress(map.get(Constants.ADDRESS), Integer.parseInt(map.get(Constants.MEMBERSHIP_PORT)));
-        try {
-            ses.submit(sendMembership(address));
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        System.out.println("AAAAAAAAAAAAAAAAA");
 
-        redistributeValues();
+        ses.submit(()-> {
+            try {
+                sendMembership(address);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+        ses.schedule(()->redistributeValues(),1,TimeUnit.SECONDS);
         return null;
     }
 
     private void redistributeValues() {
+        System.out.println("Redistributing...");
         keyPathMap.forEach((k,v)->{
-            if(getResponsibleNode(k)!=id) {
+            if(!getResponsibleNode(k).equals(id)) {
                 try {
-                    sendPut(id,k,readKeyVal(k).getBytes());
+                    sendPut(getResponsibleNode(k),k,readKeyVal(k).getBytes());
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -246,7 +254,7 @@ public class StorageNode implements Functions, Remote {
         });
     }
 
-    Callable<String> sendMembership (InetSocketAddress address) throws IOException, InterruptedException {
+    public void sendMembership (InetSocketAddress address) throws IOException, InterruptedException {
         SocketChannel socketChannel = SocketChannel.open();
         socketChannel.connect(address);
 
@@ -262,8 +270,7 @@ public class StorageNode implements Functions, Remote {
         TimeUnit.MILLISECONDS.sleep((new Random()).nextInt(0,100));
         socketChannel.write(ByteBuffer.wrap(buf));
         socketChannel.close();
-        if (Constants.DEBUG) System.out.println("Sent Membership to " + address.toString() + map);
-        return null;
+        if (Constants.DEBUG) System.out.println("Sent Membership to " + address.toString());
     }
 
     //Listens for membership messages after join
@@ -544,7 +551,7 @@ public class StorageNode implements Functions, Remote {
             String resp = new String(bb.array()).trim();
             mapResp = message.disassembleMsb(resp);
             if(mapResp.get(Constants.ACTION).equals(Constants.GET_RESP)) break;
-            TimeUnit.SECONDS.sleep(1);
+            TimeUnit.MILLISECONDS.sleep(100);
         }
         socketChannel.close();
         return mapResp.get(Constants.BODY);
