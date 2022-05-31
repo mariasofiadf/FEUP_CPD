@@ -9,6 +9,7 @@ public final class Constants {
     public static final String GET = "get";
     public static final String GET_RESP = "GET_RESP";
     public static final String MEMBERSHIP_PORT = "MEMBERSHIP_PORT";
+    public static final String DELETE = "DELETE";
 
     private Constants() {
         // restrict instantiation
@@ -22,7 +23,7 @@ public final class Constants {
     public static final String ID = "id";
     public static final String COUNTER = "counter";
     public static final String BODY = "body";
-    public static final Integer MAX_THREADS = 1000;
+    public static final Integer MAX_THREADS = 10000;
     public static final Integer MAX_LOG = 32;
 
 
