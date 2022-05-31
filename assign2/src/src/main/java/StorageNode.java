@@ -124,7 +124,7 @@ public class StorageNode implements Functions, Remote {
             ses.schedule(() -> process(msg, null),0,TimeUnit.SECONDS);
             if ("end".equals(msg)) break;
         }
-        System.out.println("[mcast] Stopped listening");
+        System.out.println("Stopped listening");
         socket.leaveGroup(group,netIf);
         socket.close();
         return null;
@@ -139,7 +139,6 @@ public class StorageNode implements Functions, Remote {
             throw new RuntimeException(e);
         }
         if(map.get(Constants.ACTION) == null) return null;
-        System.out.println("Received " + map.get(Constants.ACTION));
         switch (map.get(Constants.ACTION)) {
             case Constants.JOIN -> processJoin(map);
             case Constants.LEAVE -> processLeave(map);
@@ -193,8 +192,10 @@ public class StorageNode implements Functions, Remote {
     }
 
     private void processMembership(Map<String, String> map) {
+        System.out.println("Received membership" + map);
+        receivedMembership++;
         map.forEach((k, v) -> {
-            if(!k.equalsIgnoreCase(Constants.ACTION) && !k.equalsIgnoreCase(Constants.BODY) && !k.equals(id))
+            if(!k.equalsIgnoreCase(Constants.ACTION) && !k.equalsIgnoreCase(Constants.BODY))
                 if(!members.contains(k)) {
                     System.out.println("Added member: " + k.substring(0,6));
                     members.add(k);
@@ -204,22 +205,20 @@ public class StorageNode implements Functions, Remote {
                     memberInfo.put(k, new MemberInfo(parts[0],Integer.parseInt(parts[1]),Integer.parseInt(parts[2])));
                 }
         });
-        receivedMembership++;
     }
 
     Callable processLeave(Map<String, String> map) {
         if(map.get(Constants.ID).equals(id)) return null;
         ses.submit(()->memberInfo.remove(map.get(Constants.ID)));
-        System.out.println("LEAVE: " + map);
         ses.submit(()->addMembershipEntry(map.get(Constants.ID), parseInt(map.get(Constants.COUNTER))));
         return null;
     }
 
 
     Callable processJoin(Map<String, String> map) {
-
+        System.out.println(map.get(Constants.ID).substring(0,6) + " joined the cluster");
         if(map.get(Constants.ID).equals(id)) return null;
-        if(members.contains(map.get(Constants.ID))) return null;
+//        if(members.contains(map.get(Constants.ID))) return null;
         ses.submit(() -> memberInfo.put(map.get(Constants.ID), new MemberInfo(map.get(Constants.ADDRESS),
                 Integer.valueOf(map.get(Constants.MEMBERSHIP_PORT)),Integer.valueOf(map.get(Constants.PORT)))));
         ses.submit(() -> addMembershipEntry(map.get(Constants.ID), parseInt(map.get(Constants.COUNTER))));
@@ -230,7 +229,21 @@ public class StorageNode implements Functions, Remote {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+
+        redistributeValues();
         return null;
+    }
+
+    private void redistributeValues() {
+        keyPathMap.forEach((k,v)->{
+            if(getResponsibleNode(k)!=id) {
+                try {
+                    sendPut(id,k,readKeyVal(k).getBytes());
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        });
     }
 
     Callable<String> sendMembership (InetSocketAddress address) throws IOException, InterruptedException {
@@ -249,7 +262,7 @@ public class StorageNode implements Functions, Remote {
         TimeUnit.MILLISECONDS.sleep((new Random()).nextInt(0,100));
         socketChannel.write(ByteBuffer.wrap(buf));
         socketChannel.close();
-        if (Constants.DEBUG) System.out.println("Sent Membership to " + address.toString());
+        if (Constants.DEBUG) System.out.println("Sent Membership to " + address.toString() + map);
         return null;
     }
 
@@ -257,7 +270,7 @@ public class StorageNode implements Functions, Remote {
     Callable<String> membershipListener = () -> {
         ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
         serverSocketChannel.socket().bind(new InetSocketAddress(localAddress,membershipPort));
-        if(Constants.DEBUG) System.out.println("[membership listener] Starting to listen for membership messages on " + serverSocketChannel.getLocalAddress());
+        if(Constants.DEBUG) System.out.println("Starting to listen for membership messages on " + serverSocketChannel.getLocalAddress());
         while (receivedMembership < Constants.MIN_RECEIVED_MEMBERSHIP){
             SocketChannel sc = serverSocketChannel.accept();
             ses.submit(()->{
@@ -284,18 +297,15 @@ public class StorageNode implements Functions, Remote {
         if(Constants.DEBUG) System.out.println("Starting to listen for messages on " + serverSocketChannel.getLocalAddress());
         while (inGroup){
             SocketChannel sc = serverSocketChannel.accept();
-            ses.submit(()->{
-                String msg;
-                ByteBuffer bb = ByteBuffer.allocate(1000);
-                try {
-                    sc.read(bb);
-                    msg = new String(bb.array()).trim();
-                    ses.submit(()->process(msg, sc));
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            });
-            TimeUnit.SECONDS.sleep(2);
+            String msg;
+            ByteBuffer bb = ByteBuffer.allocate(1000);
+            try {
+                sc.read(bb);
+                msg = new String(bb.array()).trim();
+                ses.submit(()->process(msg, sc));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
             if("lol".equals("end")) break;
         }
         return "Task's execution";
@@ -362,18 +372,20 @@ public class StorageNode implements Functions, Remote {
     Callable<String> join = () -> {
         ses.submit(mcastListener);
         ses.submit(membershipListener);
+        ses.submit(mainListener);
+        ses.submit(() -> addMembershipEntry(id,counter));
+        ses.submit(() -> memberInfo.put(id, new MemberInfo(localAddress, membershipPort,port)));
         while (sentJoins < Constants.MAX_JOIN_TRIES && receivedMembership < Constants.MIN_RECEIVED_MEMBERSHIP){
             ses.submit(sendJoin);
             TimeUnit.SECONDS.sleep(1);
         }
-        if(sentJoins >= Constants.MAX_JOIN_TRIES)
+        if(sentJoins >= Constants.MAX_JOIN_TRIES && receivedMembership < Constants.MIN_RECEIVED_MEMBERSHIP)
             System.out.println("Sent 3 joins and didn't get 3 memberships back... Inside cluster");
         if(receivedMembership >= Constants.MIN_RECEIVED_MEMBERSHIP)
             System.out.println("Received 3 memberships back. Inside cluster!");
-        ses.submit(() -> addMembershipEntry(id,counter));
-        ses.submit(() -> memberInfo.put(id, new MemberInfo(localAddress, membershipPort,port)));
+
         ses.schedule(() -> sendLog(),1000+(new Random()).nextInt(0,100),TimeUnit.MILLISECONDS);
-        ses.submit(mainListener);
+
         return "Joined cluster";
     };
 
@@ -594,12 +606,11 @@ public class StorageNode implements Functions, Remote {
 
     String binarySearch(List<String> arr, int l, int r, String x)
     {
-        System.out.println("l: " + l + " r:" + r);
         if(arr.size() == 1) return arr.get(0);
         if(arr.size() == 2){
-            if(arr.get(0).compareTo(x) > 0)
-                return arr.get(0);
-            else return arr.get(1);
+            if(arr.get(0).compareTo(x) < 0 && arr.get(1).compareTo(x) >= 0)
+                return arr.get(1);
+            else return arr.get(0);
         }
         if (r >= l) {
             int mid = l + (r - l) / 2;
@@ -608,8 +619,6 @@ public class StorageNode implements Functions, Remote {
                 return arr.get(0);
             if(mid <= 0)
                 return arr.get(0);
-
-            System.out.println(arr.get(mid) + "," + x + "," + arr.get(mid-1));
 
             if ((arr.get(mid)).compareTo(x) > 0  && (arr.get(mid-1)).compareTo(x) < 0){
                 return arr.get(mid);

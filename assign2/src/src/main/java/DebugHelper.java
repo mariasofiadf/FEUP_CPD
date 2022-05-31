@@ -1,8 +1,18 @@
+import java.util.Arrays;
+import java.util.List;
+import java.util.Random;
 import java.util.Scanner;
 import java.util.concurrent.Callable;
 
 public class DebugHelper implements Callable {
     StorageNode node;
+    String text = "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been" +
+            " the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type" +
+            " and scrambled it to make a type specimen book. It has survived not only five centuries, but also the" +
+            " leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s" +
+            " with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop" +
+            " publishing software like Aldus PageMaker including versions of Lorem Ipsum";
+    List<String> words = Arrays.stream(text.split(" ")).toList();
     public DebugHelper(StorageNode node) {
         this.node = node;
     }
@@ -21,9 +31,16 @@ public class DebugHelper implements Callable {
                 case 'm': node.showMembers(); break;
                 case 'h': node.showMembershipLog(); break;
                 case 'k': node.showKeys(); break;
-                case 'p': node.put("5xafas", "Hello World!\nMy name is...".getBytes()); break;
-                case 'g': var v = node.get("5xafas");
-                    System.out.println("Got value: " + v); break;
+                case 'p':
+                    for (String word : words) {
+                        String key = new Hash().hash(word);
+                        node.put(key,word.getBytes());
+                    } break;
+                case 'g':
+                    for (String word : words) {
+                        String key = new Hash().hash(word);
+                        System.out.println("Got value: " + node.get(key));
+                    }break;
                 default: System.out.println("Invalid key");
             }
         }
