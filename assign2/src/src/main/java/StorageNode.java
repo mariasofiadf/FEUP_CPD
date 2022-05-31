@@ -83,7 +83,7 @@ public class StorageNode implements Functions, Remote {
         }
 
         try{
-            
+
             StorageNode node = new StorageNode(args[0], args[1], args[2], args[3]);
 
             System.out.printf("[Main] Node initialized with IP_mcast_addr=%s IP_mcast_port=%d node_id=%s Store_port=%d%n",
@@ -195,8 +195,12 @@ public class StorageNode implements Functions, Remote {
         map.forEach((k, v) -> {
             if(!k.equalsIgnoreCase(Constants.ACTION) && !k.equalsIgnoreCase(Constants.BODY) && !k.equals(id))
                 if(!members.contains(k)) {
-                    System.out.println("Added member: " + k);
+                    System.out.println("Added member: " + k.substring(0,6));
                     members.add(k);
+                }
+                if(!memberInfo.containsKey(k)){
+                    String[] parts = v.split(":");
+                    memberInfo.put(k, new MemberInfo(parts[0],Integer.parseInt(parts[1]),Integer.parseInt(parts[2])));
                 }
         });
         receivedMembership++;
@@ -237,7 +241,7 @@ public class StorageNode implements Functions, Remote {
         map.put("action", Constants.MEMBERSHIP);
         for(String key : members){
             MemberInfo memberInfo = this.memberInfo.get(key);
-            if(memberInfo != null)  map.put(key, memberInfo.address + ":" + memberInfo.membershipPort);
+            if(memberInfo != null)  map.put(key, memberInfo.address + ":" + memberInfo.membershipPort+ ":" + memberInfo.port);
         }
 
         byte[] buf = message.assembleMsg(map).getBytes();
@@ -448,6 +452,7 @@ public class StorageNode implements Functions, Remote {
     Callable<String> sendPut(String nodeId, String key, byte[] bs) throws IOException {
         SocketChannel socketChannel = SocketChannel.open();
         InetSocketAddress address = new InetSocketAddress(memberInfo.get(nodeId).address, memberInfo.get(nodeId).port);
+        System.out.println("Send put to " + address);
         socketChannel.connect(address);
         Message message = new Message();
         Map<String, String> map = new HashMap<>();
@@ -574,8 +579,11 @@ public class StorageNode implements Functions, Remote {
     public void showMembers(){
         System.out.println("Members");
         for (String member : members) {
-            System.out.println(member);
+            System.out.println(member.substring(0,6));
         }
+        memberInfo.forEach((k,v)->{
+            System.out.println(k.substring(0,6) + " " + memberInfo.get(k).address + " " + memberInfo.get(k).port);
+        });
     }
 
     public void showMembershipLog(){
@@ -585,6 +593,7 @@ public class StorageNode implements Functions, Remote {
 
     String binarySearch(List<String> arr, int l, int r, String x)
     {
+        System.out.println("l: " + l + " r:" + r);
         if(arr.size() == 1) return arr.get(0);
         if(arr.size() == 2){
             if(arr.get(0).compareTo(x) > 0)
@@ -597,16 +606,20 @@ public class StorageNode implements Functions, Remote {
             if(mid >= arr.size())
                 return arr.get(0);
             if(mid <= 0)
-                return arr.get(1);
+                return arr.get(0);
 
-            if (arr.get(mid).compareTo(x) > 0  && arr.get(mid-1).compareTo(x) < 0){
+            System.out.println(arr.get(mid) + "," + x + "," + arr.get(mid-1));
+
+            if ((arr.get(mid)).compareTo(x) > 0  && (arr.get(mid-1)).compareTo(x) < 0){
                 return arr.get(mid);
             }
 
-            if (arr.get(mid).compareTo(x) > 0)
-                return binarySearch(arr, l, mid - 1, x);
+            if ((arr.get(mid)).compareTo(x) > 0)
+            {
+                return binarySearch(arr, l, mid-1, x);
+            }
 
-            return binarySearch(arr, mid + 1, r, x);
+            return binarySearch(arr, mid+1, r, x);
         }
 
         return "";
