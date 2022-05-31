@@ -23,7 +23,7 @@ public final class Constants {
     public static final String ID = "id";
     public static final String COUNTER = "counter";
     public static final String BODY = "body";
-    public static final Integer MAX_THREADS = 1000;
+    public static final Integer MAX_THREADS = 10000;
     public static final Integer MAX_LOG = 32;
 
 

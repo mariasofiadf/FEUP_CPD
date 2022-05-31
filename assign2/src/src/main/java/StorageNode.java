@@ -227,16 +227,13 @@ public class StorageNode implements Functions, Remote {
         if(map.get(Constants.ID).equals(id)) return null;
         System.out.println(map.get(Constants.ID).substring(0,6) + " joined the cluster");
 //        if(members.contains(map.get(Constants.ID))) return null;
-        System.out.println("AAAAAAAAAAAAAAAAA");
+
         ses.submit(() -> memberInfo.put(map.get(Constants.ID), new MemberInfo(map.get(Constants.ADDRESS),
                 Integer.valueOf(map.get(Constants.MEMBERSHIP_PORT)),Integer.valueOf(map.get(Constants.PORT)))));
 
-        System.out.println("AAAAAAAAAAAAAAAAA");
         ses.submit(() -> addMembershipEntry(map.get(Constants.ID), parseInt(map.get(Constants.COUNTER))));
-        //Address to send membership to
-        System.out.println("AAAAAAAAAAAAAAAAA");
         InetSocketAddress address = new InetSocketAddress(map.get(Constants.ADDRESS), Integer.parseInt(map.get(Constants.MEMBERSHIP_PORT)));
-        System.out.println("AAAAAAAAAAAAAAAAA");
+
 
         ses.submit(()-> {
             try {
@@ -255,6 +252,7 @@ public class StorageNode implements Functions, Remote {
             if(!getResponsibleNode(k).equals(id)) {
                 try {
                     sendPut(getResponsibleNode(k),k,readKeyVal(k).getBytes());
+                    delKeyVal(k);
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -428,6 +426,8 @@ public class StorageNode implements Functions, Remote {
         DatagramPacket packet = new DatagramPacket(buf, buf.length, group, IP_mcast_port);
         socket.send(packet);
         socket.close();
+        members.remove(id);
+        ses.schedule(()->redistributeValues(),1,TimeUnit.SECONDS);
         if (Constants.DEBUG) System.out.println("Sent Leave");
         return "Sent Leave";
     };
@@ -559,7 +559,7 @@ public class StorageNode implements Functions, Remote {
             String resp = new String(bb.array()).trim();
             mapResp = message.disassembleMsb(resp);
             if(mapResp.get(Constants.ACTION).equals(Constants.GET_RESP)) break;
-            TimeUnit.MILLISECONDS.sleep(100);
+            TimeUnit.MILLISECONDS.sleep(10);
         }
         socketChannel.close();
         return mapResp.get(Constants.BODY);
