@@ -600,7 +600,7 @@ public class StorageNode implements Functions, Remote {
                     throw new RuntimeException(e);
                 }
             });
-            System.out.println("Not my key ("+key+")... redirecting it to " + nodeId.substring(0,6));
+            System.out.println("Not my key ("+key+")... deleting it from " + nodeId.substring(0,6));
         }
         return "Deleted " + key;
     }
@@ -608,7 +608,6 @@ public class StorageNode implements Functions, Remote {
     private void sendDelete(String nodeId, String key) throws IOException {
         SocketChannel socketChannel = SocketChannel.open();
         InetSocketAddress address = new InetSocketAddress(memberInfo.get(nodeId).address, memberInfo.get(nodeId).port);
-        System.out.println("Send delete to " + address);
         socketChannel.connect(address);
         Message message = new Message();
         Map<String, String> map = new HashMap<>();
@@ -649,7 +648,7 @@ public class StorageNode implements Functions, Remote {
     }
 
     public void showMembers(){
-        System.out.println("Members");
+        System.out.println("\nMembers");
         for (String member : members) {
             System.out.println(member.substring(0,6));
         }
@@ -659,8 +658,8 @@ public class StorageNode implements Functions, Remote {
     }
 
     public void showMembershipLog(){
-        System.out.println("Membership Log");
-        membershipLog.forEach((k,v)-> System.out.println("[Main] Id: " + k.substring(0,6) + " | Counter: " + v));
+        System.out.println("\nMembership Log");
+        membershipLog.forEach((k,v)-> System.out.println("Id: " + k.substring(0,6) + " | Counter: " + v));
     }
 
     String binarySearch(List<String> arr, int l, int r, String x)
@@ -699,6 +698,7 @@ public class StorageNode implements Functions, Remote {
     }
 
     public void showKeys(){
+        System.out.println("\nKeys:");
         this.keyPathMap.forEach((k,v)-> System.out.println("key: "+ k + "\tpath: " + v));
     }
 
