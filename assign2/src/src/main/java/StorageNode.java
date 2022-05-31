@@ -83,7 +83,7 @@ public class StorageNode implements Functions, Remote {
         }
 
         try{
-            
+
             StorageNode node = new StorageNode(args[0], args[1], args[2], args[3]);
 
             System.out.printf("[Main] Node initialized with IP_mcast_addr=%s IP_mcast_port=%d node_id=%s Store_port=%d%n",
@@ -582,7 +582,7 @@ public class StorageNode implements Functions, Remote {
             System.out.println(member.substring(0,6));
         }
         memberInfo.forEach((k,v)->{
-            System.out.println(k + " " + memberInfo.get(k).address + " " + memberInfo.get(k).port);
+            System.out.println(k.substring(0,6) + " " + memberInfo.get(k).address + " " + memberInfo.get(k).port);
         });
     }
 
@@ -593,6 +593,7 @@ public class StorageNode implements Functions, Remote {
 
     String binarySearch(List<String> arr, int l, int r, String x)
     {
+        System.out.println("l: " + l + " r:" + r);
         if(arr.size() == 1) return arr.get(0);
         if(arr.size() == 2){
             if(arr.get(0).compareTo(x) > 0)
@@ -605,16 +606,20 @@ public class StorageNode implements Functions, Remote {
             if(mid >= arr.size())
                 return arr.get(0);
             if(mid <= 0)
-                return arr.get(1);
+                return arr.get(0);
 
-            if (arr.get(mid).compareTo(x) > 0  && arr.get(mid-1).compareTo(x) < 0){
+            System.out.println(arr.get(mid) + "," + x + "," + arr.get(mid-1));
+
+            if ((arr.get(mid)).compareTo(x) > 0  && (arr.get(mid-1)).compareTo(x) < 0){
                 return arr.get(mid);
             }
 
-            if (arr.get(mid).compareTo(x) > 0)
-                return binarySearch(arr, l, mid - 1, x);
+            if ((arr.get(mid)).compareTo(x) > 0)
+            {
+                return binarySearch(arr, l, mid-1, x);
+            }
 
-            return binarySearch(arr, mid + 1, r, x);
+            return binarySearch(arr, mid+1, r, x);
         }
 
         return "";
