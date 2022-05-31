@@ -10,5 +10,5 @@ public interface Functions extends Remote {
 
         String get(String key) throws RemoteException, ExecutionException, InterruptedException;
 
-    String delete(int key) throws RemoteException;
+    String delete(String key) throws RemoteException, ExecutionException, InterruptedException;
 }

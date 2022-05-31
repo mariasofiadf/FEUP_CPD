@@ -145,6 +145,7 @@ public class StorageNode implements Functions, Remote {
             case Constants.LOG -> processLog(map);
             case Constants.MEMBERSHIP -> processMembership(map);
             case Constants.PUT -> processPut(map);
+            case Constants.DELETE -> processDelete(map);
             case Constants.GET -> {
                 try {
                     processGet(map,sc);
@@ -160,6 +161,13 @@ public class StorageNode implements Functions, Remote {
             throw new RuntimeException(e);
         }
         return null;
+    }
+
+    private void processDelete(Map<String, String> map) {
+        String key = map.get(Constants.KEY);
+        System.out.println("Deleting key: " + key);
+        keyPathMap.remove(key);
+        delKeyVal(key);
     }
 
     private void processGet(Map<String, String> map, SocketChannel sc) throws IOException {
@@ -460,7 +468,6 @@ public class StorageNode implements Functions, Remote {
             System.out.println("Inserting key " + key);
             keyPathMap.put(key,key);
             saveKeyVal(key, bs);
-            
         }
         else {
             ses.submit(()->sendPut(nodeId, key, bs));
@@ -527,6 +534,7 @@ public class StorageNode implements Functions, Remote {
                 throw new RuntimeException(e);
             }
         }
+        if(value.equals("")) return "Key not in store";
         return value;
     }
 
@@ -569,8 +577,52 @@ public class StorageNode implements Functions, Remote {
     }
 
     @Override
-    public String delete(int key) throws RemoteException {
-        return "delete not implemented yet";
+    public String delete(String key) throws RemoteException, ExecutionException, InterruptedException {
+        Future<String> future = ses.submit(()->{
+            return deleteCall(key);}
+        );
+        while(!future.isDone()) TimeUnit.SECONDS.sleep(1);
+        return future.get();
+    }
+
+    private String deleteCall(String key) {
+        String nodeId = getResponsibleNode(key);
+        if(nodeId.equals(id)){
+            System.out.println("Deleting key " + key);
+            keyPathMap.remove(key);
+            delKeyVal(key);
+        }
+        else {
+            ses.submit(()-> {
+                try {
+                    sendDelete(nodeId, key);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            System.out.println("Not my key ("+key+")... redirecting it to " + nodeId.substring(0,6));
+        }
+        return "Deleted " + key;
+    }
+
+    private void sendDelete(String nodeId, String key) throws IOException {
+        SocketChannel socketChannel = SocketChannel.open();
+        InetSocketAddress address = new InetSocketAddress(memberInfo.get(nodeId).address, memberInfo.get(nodeId).port);
+        System.out.println("Send delete to " + address);
+        socketChannel.connect(address);
+        Message message = new Message();
+        Map<String, String> map = new HashMap<>();
+        map.put("action", Constants.DELETE);
+        map.put(Constants.KEY, key);
+        byte[] buf = message.assembleMsg(map).getBytes();
+        socketChannel.write(ByteBuffer.wrap(buf));
+        socketChannel.close();
+    }
+
+    private void delKeyVal(String key) {
+        String path = id + File.separator + Constants.STORE_FOLDER + File.separator + key;
+        File file = new File(path);
+        file.delete();
     }
 
     public void addMembershipEntry(String id, Integer counter){
