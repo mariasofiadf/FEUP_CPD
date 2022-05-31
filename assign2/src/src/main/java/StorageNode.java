@@ -2,6 +2,8 @@ import java.io.*;
 import java.net.*;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.rmi.Remote;
 import java.rmi.registry.Registry;
 import java.rmi.registry.LocateRegistry;
@@ -15,8 +17,9 @@ import static java.lang.Integer.parseInt;
 import static java.lang.String.valueOf;
 
 
+
 public class StorageNode implements Functions, Remote {
-    int counter = 0;
+    int counter = -1;
     String id;
     boolean inGroup = false;
     int receivedMembership = 0;
@@ -383,6 +386,9 @@ public class StorageNode implements Functions, Remote {
     };
 
     Callable<String> join = () -> {
+        if(counter%2!=0)
+            counter++;
+
         ses.submit(mcastListener);
         ses.submit(membershipListener);
         ses.submit(mainListener);
@@ -399,6 +405,7 @@ public class StorageNode implements Functions, Remote {
 
         ses.schedule(() -> sendLog(),1000+(new Random()).nextInt(0,100),TimeUnit.MILLISECONDS);
 
+        ses.submit(()->saveCounterDisk());
         return "Joined cluster";
     };
 
@@ -719,8 +726,41 @@ public class StorageNode implements Functions, Remote {
         if(!store.exists()){
             store.mkdir();
         }
-        //TODO load store from disk
-        //TODO load couter from disk
+        try {
+            loadStoreDisk();
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+
+        File counter = new File(directoryName + File.separator + Constants.COUNTER);
+        if(counter.exists())
+            loadCounterDisk();
+    }
+
+    private void loadCounterDisk() {
+        try (FileInputStream fis = new FileInputStream(this.id + File.separator+ Constants.COUNTER);
+             ObjectInputStream ois = new ObjectInputStream(fis)) {
+            this.counter = (Integer) ois.readObject();
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
+    private void saveCounterDisk(){
+        try (FileOutputStream fos = new FileOutputStream(this.id + File.separator+ Constants.COUNTER);
+             ObjectOutputStream oos = new ObjectOutputStream(fos)) {
+            oos.writeObject(this.counter);
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    private void loadStoreDisk() throws FileNotFoundException {
+        File store = new File(this.id + File.separator + Constants.STORE_FOLDER);
+        for(File entry : store.listFiles()){
+            keyPathMap.put(entry.getName(),entry.getName());
+        }
     }
 
     public void saveMembersDisk(){//TODO: Save memberinfo
