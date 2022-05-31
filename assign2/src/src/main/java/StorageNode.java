@@ -716,7 +716,8 @@ public class StorageNode implements Functions, Remote {
             directory.mkdir();
         }
         File members = new File((directoryName + File.separator + Constants.MEMBERS_FILENAME));
-        if(members.exists())
+        File memberinfo = new File((directoryName + File.separator + Constants.MEMBERINFO_FILENAME));
+        if(members.exists() && memberinfo.exists())
             loadMembersDisk();
         File log = new File((directoryName + File.separator + Constants.LOG_FILENAME));
         if(log.exists())
@@ -770,12 +771,26 @@ public class StorageNode implements Functions, Remote {
         } catch (IOException ex) {
             ex.printStackTrace();
         }
+        try (FileOutputStream fos = new FileOutputStream(this.id + File.separator+ Constants.MEMBERINFO_FILENAME);
+             ObjectOutputStream oos = new ObjectOutputStream(fos)) {
+            oos.writeObject(this.memberInfo);
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
     }
 
     public void loadMembersDisk(){//TODO load memberinfo
         try (FileInputStream fis = new FileInputStream(this.id + File.separator+ Constants.MEMBERS_FILENAME);
              ObjectInputStream ois = new ObjectInputStream(fis)) {
             this.members = (List<String>) ois.readObject();
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+        try (FileInputStream fis = new FileInputStream(this.id + File.separator+ Constants.MEMBERINFO_FILENAME);
+             ObjectInputStream ois = new ObjectInputStream(fis)) {
+            this.memberInfo = (Map<String, MemberInfo>) ois.readObject();
         } catch (IOException ex) {
             ex.printStackTrace();
         } catch (ClassNotFoundException e) {
