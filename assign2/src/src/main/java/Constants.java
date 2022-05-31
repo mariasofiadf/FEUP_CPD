@@ -10,6 +10,7 @@ public final class Constants {
     public static final String GET_RESP = "GET_RESP";
     public static final String MEMBERSHIP_PORT = "MEMBERSHIP_PORT";
     public static final String DELETE = "DELETE";
+    public static final String MEMBERINFO_FILENAME = "MEMBERINFO";
 
     private Constants() {
         // restrict instantiation
