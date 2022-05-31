@@ -139,6 +139,7 @@ public class StorageNode implements Functions, Remote {
             throw new RuntimeException(e);
         }
         if(map.get(Constants.ACTION) == null) return null;
+        System.out.println("Received " + map.get(Constants.ACTION));
         switch (map.get(Constants.ACTION)) {
             case Constants.JOIN -> processJoin(map);
             case Constants.LEAVE -> processLeave(map);
@@ -326,7 +327,7 @@ public class StorageNode implements Functions, Remote {
         socket.send(packet);
         socket.close();
         if(Constants.DEBUG) System.out.println("Sent Log");
-        if(inGroup) ses.schedule(() -> sendLog(),1000 + 1000*(1/membershipLog.size()),TimeUnit.MILLISECONDS);
+        if(inGroup) ses.schedule(() -> sendLog(),Constants.LOG_INTERVAL*1000 + Constants.LOG_INTERVAL*1000*(1/membershipLog.size()),TimeUnit.MILLISECONDS);
         else if (Constants.DEBUG) System.out.println("Stopped sending log msg");
         return null;
     };
@@ -654,7 +655,7 @@ public class StorageNode implements Functions, Remote {
         //TODO load couter from disk
     }
 
-    public void saveMembersDisk(){
+    public void saveMembersDisk(){//TODO: Save memberinfo
         try (FileOutputStream fos = new FileOutputStream(this.id + File.separator+ Constants.MEMBERS_FILENAME);
              ObjectOutputStream oos = new ObjectOutputStream(fos)) {
             oos.writeObject(this.members);
@@ -663,7 +664,7 @@ public class StorageNode implements Functions, Remote {
         }
     }
 
-    public void loadMembersDisk(){
+    public void loadMembersDisk(){//TODO load memberinfo
         try (FileInputStream fis = new FileInputStream(this.id + File.separator+ Constants.MEMBERS_FILENAME);
              ObjectInputStream ois = new ObjectInputStream(fis)) {
             this.members = (List<String>) ois.readObject();
