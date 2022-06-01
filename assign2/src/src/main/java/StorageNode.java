@@ -471,6 +471,7 @@ public class StorageNode implements Functions, Remote {
 
     String putCall(String key, byte[] bs){
         String nodeId = getResponsibleNode(key);
+        ArrayList<String> replicators = getReplicatorNodes(key);
         if(nodeId.equals(id)){
             System.out.println("Inserting key " + key);
             keyPathMap.put(key,key);
@@ -479,6 +480,9 @@ public class StorageNode implements Functions, Remote {
         else {
             ses.submit(()->sendPut(nodeId, key, bs));
             System.out.println("Not my key ("+key+")... redirecting it to " + nodeId.substring(0,6));
+        }
+        for(String replicator : replicators){
+            ses.submit(()->sendPut(replicator,key,bs));
         }
         return "Put " + key;
     }
@@ -514,6 +518,11 @@ public class StorageNode implements Functions, Remote {
         String value = "";
         String path = id + File.separator + Constants.STORE_FOLDER + File.separator + key;
         File file = new File(path);
+        if(!file.exists()){
+            System.out.println("Just noticed I lost this file -> " + key);
+            keyPathMap.remove(key);
+            return value;
+        }
         try (FileInputStream fis = new FileInputStream(path);
             ObjectInputStream ois = new ObjectInputStream(fis)) {
             bs = ois.readAllBytes();
@@ -526,17 +535,24 @@ public class StorageNode implements Functions, Remote {
 
     String getCall(String key){
         String nodeId = getResponsibleNode(key);
+        var replicators = getReplicatorNodes(key);
         String value = "";
-        if(nodeId.equals(id)){
+        if(nodeId.equals(id) || (keyPathMap.contains(key) && replicators.contains(id))){
             System.out.println("Getting key " + key);
             if(keyPathMap.get(key) != null){
                 value = readKeyVal(key);
             }
         }
-        else {
-            System.out.println("Not my key ("+key+")... getting it from " + nodeId.substring(0,6));
+        if(value == "") {
             try {
-                value = requestValue(nodeId, key);
+                do{
+                    if(getResponsibleNode(key) == id)
+                        System.out.println("I don't have this key ("+key.substring(0,6)+")... getting it from " + nodeId.substring(0,6));
+                    else System.out.println("Not my key ("+key.substring(0,6)+")... getting it from " + nodeId.substring(0,6));
+                    value = requestValue(nodeId, key);
+                    nodeId = replicators.get(0);
+                    replicators.remove(0);
+                }while (value=="" && !replicators.isEmpty());
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -556,6 +572,7 @@ public class StorageNode implements Functions, Remote {
         map.put(Constants.KEY, key);
 
         byte[] buf = message.assembleMsg(map).getBytes();
+
         socketChannel.write(ByteBuffer.wrap(buf));
 
         ByteBuffer bb = ByteBuffer.allocate(1000);
@@ -702,6 +719,15 @@ public class StorageNode implements Functions, Remote {
 
     public String getResponsibleNode(String key){
         return binarySearch(this.members,0, this.members.size(),key);
+    }
+
+    public ArrayList<String> getReplicatorNodes(String key){
+        String keyOwner = getResponsibleNode(key);
+        ArrayList replicators = new ArrayList();
+        int i = members.indexOf(keyOwner);
+        replicators.add(members.get(++i%members.size()));
+        replicators.add(members.get(++i%members.size()));
+        return replicators;
     }
 
     public void showKeys(){
