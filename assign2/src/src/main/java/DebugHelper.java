@@ -29,23 +29,23 @@ public class DebugHelper implements Callable {
                 case 'h': node.showMembershipLog(); break;
                 case 'k': node.showKeys(); break;
                 case 'd':
-//                    node.delete("5xsffa");break;
-                    for (String word : words) {
-                        String key = new Hash().hash(word);
-                        node.delete(key);
-                    }break;
+                    node.delete("5xsffa");break;
+//                    for (String word : words) {
+//                        String key = new Hash().hash(word);
+//                        node.delete(key);
+//                    }break;
                 case 'p':
-//                    node.put("5xsffa", "Hello World!".getBytes());break;
-                    for (String word : words) {
-                        String key = new Hash().hash(word);
-                        node.put(key,word.getBytes());
-                    } break;
+                    node.put("5xsffa", "Hello World!".getBytes());break;
+//                    for (String word : words) {
+//                        String key = new Hash().hash(word);
+//                        node.put(key,word.getBytes());
+//                    } break;
                 case 'g':
-//                    System.out.println("Get " + "5xsffa->" + node.get("5xsffa"));break;
-                    for (String word : words) {
-                        String key = new Hash().hash(word);
-                        System.out.println("Got value: " + node.get(key));
-                    }break;
+                    System.out.println("Get " + "5xsffa->" + node.get("5xsffa"));break;
+//                    for (String word : words) {
+//                        String key = new Hash().hash(word);
+//                        System.out.println("Got value: " + node.get(key));
+//                    }break;
                 default: System.out.println("Invalid key");
             }
         }
