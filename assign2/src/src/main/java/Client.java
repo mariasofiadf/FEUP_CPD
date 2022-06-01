@@ -44,8 +44,7 @@ public class Client {
 
                 case "put":
                     //opnd here is the pathname of the file that contains the bytes to store
-                    str = Files.readString(Paths.get(opnd));
-                    node.put(key, str.getBytes());
+                    node.put(key, Files.readAllBytes(Paths.get(opnd)));
                     System.out.println("Put " + opnd + "!");
                     break;
                 
@@ -77,7 +76,7 @@ public class Client {
   
         }
         catch(Exception e){
-            System.out.println("Incorrect arguments.");
+            System.out.println("Error: " + e);
         }
 
     }
