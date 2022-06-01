@@ -564,7 +564,9 @@ public class StorageNode implements Functions, Remote {
     private String requestValue(String nodeId, String key) throws Exception {
         SocketChannel socketChannel = SocketChannel.open();
         InetSocketAddress address = new InetSocketAddress(memberInfo.get(nodeId).address, memberInfo.get(nodeId).port);
-        socketChannel.connect(address);
+        socketChannel.configureBlocking(false);
+        boolean connected =  socketChannel.connect(address);
+        if(!connected) return "";
 
         Message message = new Message();
         Map<String, String> map = new HashMap<>();
