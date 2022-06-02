@@ -11,6 +11,7 @@ public final class Constants {
     public static final String MEMBERSHIP_PORT = "MEMBERSHIP_PORT";
     public static final String DELETE = "DELETE";
     public static final String MEMBERINFO_FILENAME = "MEMBERINFO";
+    public static final boolean LOOPBACK = true;
 
     private Constants() {
         // restrict instantiation

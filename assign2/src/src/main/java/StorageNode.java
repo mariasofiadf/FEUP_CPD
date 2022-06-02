@@ -34,7 +34,7 @@ public class StorageNode implements Functions, Remote {
     List<String> members;
     Map<String, MemberInfo> memberInfo;
     Integer sentJoins = 0;
-    StorageNode(String IP_mcast_addr, String IP_mcast_port, String id, String port) throws SocketException, UnknownHostException {
+    StorageNode(String IP_mcast_addr, String IP_mcast_port, String id) throws SocketException, UnknownHostException {
         this.ses = Executors.newScheduledThreadPool(Constants.MAX_THREADS);
         this.keyPathMap = new ConcurrentHashMap<>();
         this.membershipLog = new TreeMap<>();
@@ -43,17 +43,21 @@ public class StorageNode implements Functions, Remote {
         this.membershipPort = getFreePort();
         this.IP_mcast_addr = IP_mcast_addr;
         this.IP_mcast_port = Integer.valueOf(IP_mcast_port);
-        this.port = Integer.valueOf(port);
+        this.port = getFreePort();
         Hash hash = new Hash();
         try {
             this.id = hash.hash(id);
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
-        try(final DatagramSocket socket = new DatagramSocket()){
-            socket.connect(InetAddress.getByName("8.8.8.8"), 10002);
-            this.localAddress = socket.getLocalAddress().getHostAddress();
+        if(Constants.LOOPBACK){
+            this.localAddress = id;
+        }else{
+            try(final DatagramSocket socket = new DatagramSocket()){
+                socket.connect(InetAddress.getByName("8.8.8.8"), 10002);
+                this.localAddress = socket.getLocalAddress().getHostAddress();
 //            this.localAddress = InetAddress.getByName("localhost").getHostAddress();
+            }
         }
         this.loadFromDisk();
     }
@@ -76,7 +80,7 @@ public class StorageNode implements Functions, Remote {
     }
 
     public static void main(String[] args) {
-        if(args.length != 4)
+        if(args.length != 3)
         {
             System.out.println("Wrong number of arguments for Node startup");
             System.out.println("Usage:\njava -Djava.rmi.    .codebase=file:./ Store <IP_mcast_addr> <IP_mcast_port> <node_id>  <Store_port>");
@@ -85,10 +89,13 @@ public class StorageNode implements Functions, Remote {
 
         try{
 
-            StorageNode node = new StorageNode(args[0], args[1], args[2], args[3]);
+            StorageNode node = new StorageNode(args[0], args[1], args[2]);
 
-            System.out.printf("[Main] Node initialized with IP_mcast_addr=%s IP_mcast_port=%d node_id=%s Store_port=%d%n",
-                    node.IP_mcast_addr, node.IP_mcast_port, node.id.substring(0,6), node.port);
+            System.out.printf("[Main] Node initialized with: Multicast Address=%s\n" +
+                            "Multicast Port=%d\n" +
+                            "Address=%s\n" +
+                            "Identifier=%s",
+                    node.IP_mcast_addr, node.IP_mcast_port, node.localAddress, node.id);
 
 
             Functions functionsStub = (Functions) UnicastRemoteObject.exportObject(node,0);
