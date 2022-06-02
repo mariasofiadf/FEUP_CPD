@@ -1,6 +1,6 @@
 public final class Constants {
 
-    public static final String INTERFACE = "wlp1s0";
+    public static final String INTERFACE = "lo";
     public static final String LOG = "log";
     public static final String ADDRESS = "address";
     public static final String PORT = "port";
@@ -11,6 +11,7 @@ public final class Constants {
     public static final String MEMBERSHIP_PORT = "MEMBERSHIP_PORT";
     public static final String DELETE = "DELETE";
     public static final String MEMBERINFO_FILENAME = "MEMBERINFO";
+    public static final boolean LOOPBACK = true;
 
     private Constants() {
         // restrict instantiation
