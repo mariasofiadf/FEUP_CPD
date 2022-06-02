@@ -33,6 +33,7 @@ public class StorageNode implements Functions, Remote {
     SortedMap<String, Integer> membershipLog;
     List<String> members;
     Map<String, MemberInfo> memberInfo;
+    ArrayList<String> sentMembershipsTo = new ArrayList<>();
     Integer sentJoins = 0;
     StorageNode(String IP_mcast_addr, String IP_mcast_port, String id) throws SocketException, UnknownHostException {
         this.ses = Executors.newScheduledThreadPool(Constants.MAX_THREADS);
@@ -147,6 +148,7 @@ public class StorageNode implements Functions, Remote {
             throw new RuntimeException(e);
         }
         if(map.get(Constants.ACTION) == null) return null;
+        System.out.println("Received " + map.get(Constants.ACTION));
         switch (map.get(Constants.ACTION)) {
             case Constants.JOIN -> processJoin(map);
             case Constants.LEAVE -> processLeave(map);
@@ -231,8 +233,11 @@ public class StorageNode implements Functions, Remote {
 
     void processJoin(Map<String, String> map) {
         if(map.get(Constants.ID).equals(id)) return;
+        var id2 = map.get(Constants.ID);
+        if(sentMembershipsTo.contains(id2)) return;
+        sentMembershipsTo.add(map.get(Constants.ID));
+        ses.schedule(()->sentMembershipsTo.remove(id2),15,TimeUnit.SECONDS);
         System.out.println(map.get(Constants.ID).substring(0,6) + " joined the cluster");
-//        if(members.contains(map.get(Constants.ID))) return null;
 
         ses.submit(() -> memberInfo.put(map.get(Constants.ID), new MemberInfo(map.get(Constants.ADDRESS),
                 Integer.valueOf(map.get(Constants.MEMBERSHIP_PORT)),Integer.valueOf(map.get(Constants.PORT)))));
@@ -390,6 +395,8 @@ public class StorageNode implements Functions, Remote {
     final Callable<String> join = () -> {
         if(counter%2!=0)
             counter++;
+        sentJoins = 0;
+        receivedMembership = 0;
 
         ses.submit(mcastListener);
         ses.submit(membershipListener);
