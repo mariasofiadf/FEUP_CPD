@@ -24,7 +24,12 @@ public class Client {
             String str;
             if(args.length == 3){
                 opnd = args[2];
-                key = new Hash().hash(opnd);
+                String delimiter = System.getProperty("file.separator");
+                String opndKey = opnd;
+                if(opnd.lastIndexOf(delimiter)!=-1){
+                    opndKey = opnd.substring(opnd.lastIndexOf(delimiter)+1, opnd.length());
+                }
+                key = new Hash().hash(opndKey);
             }
 
             //node_ap = <IP address>
