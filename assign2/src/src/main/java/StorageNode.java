@@ -2,6 +2,8 @@ import java.io.*;
 import java.net.*;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.rmi.Remote;
 import java.rmi.registry.Registry;
 import java.rmi.registry.LocateRegistry;
@@ -16,7 +18,7 @@ import static java.lang.String.valueOf;
 
 
 
-public class StorageNode implements Functions, Remote {
+public class StorageNode implements NodeInterface, Remote {
     int counter = -1;
     String id;
     boolean inGroup = false;
@@ -38,6 +40,7 @@ public class StorageNode implements Functions, Remote {
     Processor processor;
     FileController fileController;
     Sender sender;
+    String networkInterface = "lo";
 
     StorageNode(String IP_mcast_addr, String IP_mcast_port, String id) throws SocketException, UnknownHostException {
         this.ses = Executors.newScheduledThreadPool(Constants.MAX_THREADS);
@@ -58,23 +61,31 @@ public class StorageNode implements Functions, Remote {
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
-        if(Constants.LOOPBACK){
-            this.localAddress = id;
-        }else{
-            try(final DatagramSocket socket = new DatagramSocket()){
-                socket.connect(InetAddress.getByName("8.8.8.8"), 10002);
-                this.localAddress = socket.getLocalAddress().getHostAddress();
-//            this.localAddress = InetAddress.getByName("localhost").getHostAddress();
+
+        this.localAddress = id;
+
+        fileController.loadFromDisk();
+
+        Path interfacePath = Path.of("NetworkInterface.txt");
+        File interfaceFile = new File("NetworkInterface.txt");
+        if(!interfaceFile.exists())
+            System.out.println("No file names NetworkInterface.txt... using loopback interface 'lo'");
+        else {
+            try {
+                this.networkInterface = Files.readString(interfacePath);
+                System.out.println("Using network interface: " + this.networkInterface);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
         }
-        fileController.loadFromDisk();
+
     }
 
     public static void main(String[] args) {
         if(args.length != 3)
         {
             System.out.println("Wrong number of arguments for Node startup");
-            System.out.println("Usage:\njava -Djava.rmi.    .codebase=file:./ Store <IP_mcast_addr> <IP_mcast_port> <node_id>  <Store_port>");
+            System.out.println("Usage:\njava -Djava.rmi.    .codebase=file:./ Store <IP_mcast_addr> <IP_mcast_port> <node_id/address>");
             return;
         }
 
@@ -94,10 +105,9 @@ public class StorageNode implements Functions, Remote {
                     node.id.substring(0,6), node.IP_mcast_addr, node.IP_mcast_port, node.localAddress, node.membershipPort, node.port);
 
 
-            Functions functionsStub = (Functions) UnicastRemoteObject.exportObject(node,0);
-            Registry registry = LocateRegistry.getRegistry();
-            registry.rebind(Constants.REG_FUNC_VAL, functionsStub);
-            boolean stop = false;
+            NodeInterface nodeInterfaceStub = (NodeInterface) UnicastRemoteObject.exportObject(node,0);
+            Registry registry = LocateRegistry.getRegistry(node.localAddress);
+            registry.rebind(node.localAddress, nodeInterfaceStub);
             if(Constants.DEBUG)
                 node.ses.schedule(new DebugHelper(node),0,TimeUnit.SECONDS);
 
@@ -292,7 +302,14 @@ public class StorageNode implements Functions, Remote {
                     if(getResponsibleNode(key).equals(id))
                         System.out.println("I don't have this key ("+key.substring(0,6)+")... getting it from " + nodeId.substring(0,6));
                     else System.out.println("Not my key ("+key.substring(0,6)+")... getting it from " + nodeId.substring(0,6));
-                    value = requestValue(nodeId, key);
+                    String finalNodeId = nodeId;
+                    Future<String> future = ses.submit(()->{return requestValue(finalNodeId, key);});
+                    for(int i = 0; i < 10; i++){
+                        if(future.isDone()) break;
+                        TimeUnit.MILLISECONDS.sleep(100);
+                    }
+                    if(!future.isDone()) future.cancel(true);
+                    else value = future.get();
                     nodeId = replicators.get(0);
                     replicators.remove(0);
                 }while (value.equals("") && !replicators.isEmpty());
@@ -308,7 +325,8 @@ public class StorageNode implements Functions, Remote {
 
     private String deleteCall(String key) {
         String nodeId = getResponsibleNode(key);
-        if(nodeId.equals(id)){
+        ArrayList<String> replicators = getReplicatorNodes(key);
+        if(nodeId.equals(id) || (keyPathMap.contains(key) && replicators.contains(id))){
             System.out.println("Deleting key " + key);
             keyPathMap.remove(key);
             fileController.delKeyVal(key);
@@ -317,15 +335,25 @@ public class StorageNode implements Functions, Remote {
             ses.submit(()-> sender.sendDelete(nodeId, key));
             System.out.println("Not my key ("+key+")... deleting it from " + nodeId.substring(0,6));
         }
+        for(var replicator: replicators){
+            System.out.println("Deleting ("+key+") from replicator " + replicator.substring(0,6));
+            ses.submit(()-> sender.sendDelete(replicator, key));
+        }
         return "Deleted " + key;
     }
 
     private String requestValue(String nodeId, String key) throws Exception {
         SocketChannel socketChannel = SocketChannel.open();
         InetSocketAddress address = new InetSocketAddress(memberInfo.get(nodeId).address, memberInfo.get(nodeId).port);
-        socketChannel.configureBlocking(false);
-        boolean connected =  socketChannel.connect(address);
-        if(!connected) return "";
+        socketChannel.configureBlocking(true);
+        socketChannel.connect(address);
+        for (int i = 0; i < 30; i++){
+            if (socketChannel.isConnected()) {
+                break;
+            }
+            TimeUnit.MILLISECONDS.sleep(10);
+        }
+        if(!socketChannel.isConnected()) return "";
 
         Message message = new Message();
         Map<String, String> map = new HashMap<>();
