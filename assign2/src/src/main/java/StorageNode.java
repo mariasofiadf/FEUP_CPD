@@ -194,7 +194,7 @@ public class StorageNode implements NodeInterface, Remote {
             SocketChannel sc = serverSocketChannel.accept();
             ses.submit(()->{
                 String msg;
-                ByteBuffer bb = ByteBuffer.allocate(1000);
+                ByteBuffer bb = ByteBuffer.allocate(Constants.BUFFER_CAPACITY);
                 try {
                     sc.read(bb);
                     msg = new String(bb.array()).trim();
@@ -217,7 +217,7 @@ public class StorageNode implements NodeInterface, Remote {
         while (inGroup){
             SocketChannel sc = serverSocketChannel.accept();
             String msg;
-            ByteBuffer bb = ByteBuffer.allocate(1000);
+            ByteBuffer bb = ByteBuffer.allocate(Constants.BUFFER_CAPACITY);
             try {
                 sc.read(bb);
                 msg = new String(bb.array()).trim();
@@ -385,7 +385,7 @@ public class StorageNode implements NodeInterface, Remote {
 
         socketChannel.write(ByteBuffer.wrap(buf));
 
-        ByteBuffer bb = ByteBuffer.allocate(1000);
+        ByteBuffer bb = ByteBuffer.allocate(Constants.BUFFER_CAPACITY);
         Map<String, String> mapResp;
         socketChannel.configureBlocking(true);
         while (true){
@@ -402,14 +402,20 @@ public class StorageNode implements NodeInterface, Remote {
     public String redistributeValues() {
         System.out.println("Redistributing values...");
         keyPathMap.forEach((k,v)->{
-            if(!getResponsibleNode(k).equals(id)) {
+            var ownerNode =getResponsibleNode(k);
+            if(!ownerNode.equals(id)) {
                 try {
-                    sender.sendPut(getResponsibleNode(k),k,fileController.readKeyVal(k).getBytes());
+                    var replicators = getReplicatorNodes(k);
+                    replicators.add(ownerNode);
+                    for(var replicator : replicators){
+                        sender.sendPut(replicator,k,fileController.readKeyVal(k).getBytes());
+                    }
                     fileController.delKeyVal(k);
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
             }
+
         });
         return "";
     }
@@ -465,7 +471,7 @@ public class StorageNode implements NodeInterface, Remote {
 
     public void showKeys(){
         System.out.println("\nKeys");
-        this.keyPathMap.forEach((k,v)-> System.out.println("key: "+ k + "\tpath: " + v));
+        this.keyPathMap.forEach((k,v)-> System.out.println("key: "+ k.substring(0,6)));
     }
 
 
