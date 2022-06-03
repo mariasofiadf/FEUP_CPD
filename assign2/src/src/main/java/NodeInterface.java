@@ -2,7 +2,7 @@ import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.util.concurrent.ExecutionException;
 
-public interface Functions extends Remote {
+public interface NodeInterface extends Remote {
 
         String join() throws RemoteException, InterruptedException, ExecutionException;
         String leave() throws RemoteException, ExecutionException, InterruptedException;

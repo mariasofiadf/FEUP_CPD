@@ -2,6 +2,8 @@ import java.io.*;
 import java.net.*;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.rmi.Remote;
 import java.rmi.registry.Registry;
 import java.rmi.registry.LocateRegistry;
@@ -16,7 +18,7 @@ import static java.lang.String.valueOf;
 
 
 
-public class StorageNode implements Functions, Remote {
+public class StorageNode implements NodeInterface, Remote {
     int counter = -1;
     String id;
     boolean inGroup = false;
@@ -38,6 +40,7 @@ public class StorageNode implements Functions, Remote {
     Processor processor;
     FileController fileController;
     Sender sender;
+    String networkInterface = "lo";
 
     StorageNode(String IP_mcast_addr, String IP_mcast_port, String id) throws SocketException, UnknownHostException {
         this.ses = Executors.newScheduledThreadPool(Constants.MAX_THREADS);
@@ -58,16 +61,24 @@ public class StorageNode implements Functions, Remote {
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
-        if(Constants.LOOPBACK){
-            this.localAddress = id;
-        }else{
-            try(final DatagramSocket socket = new DatagramSocket()){
-                socket.connect(InetAddress.getByName("8.8.8.8"), 10002);
-                this.localAddress = socket.getLocalAddress().getHostAddress();
-//            this.localAddress = InetAddress.getByName("localhost").getHostAddress();
+
+        this.localAddress = id;
+
+        fileController.loadFromDisk();
+
+        Path interfacePath = Path.of("NetworkInterface.txt");
+        File interfaceFile = new File("NetworkInterface.txt");
+        if(!interfaceFile.exists())
+            System.out.println("No file names NetworkInterface.txt... using loopback interface 'lo'");
+        else {
+            try {
+                this.networkInterface = Files.readString(interfacePath);
+                System.out.println("Using network interface: " + this.networkInterface);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
         }
-        fileController.loadFromDisk();
+
     }
 
     public static void main(String[] args) {
@@ -94,9 +105,9 @@ public class StorageNode implements Functions, Remote {
                     node.id.substring(0,6), node.IP_mcast_addr, node.IP_mcast_port, node.localAddress, node.membershipPort, node.port);
 
 
-            Functions functionsStub = (Functions) UnicastRemoteObject.exportObject(node,0);
+            NodeInterface nodeInterfaceStub = (NodeInterface) UnicastRemoteObject.exportObject(node,0);
             Registry registry = LocateRegistry.getRegistry();
-            registry.rebind(Constants.REG_FUNC_VAL, functionsStub);
+            registry.rebind(Constants.REG_FUNC_VAL, nodeInterfaceStub);
             boolean stop = false;
             if(Constants.DEBUG)
                 node.ses.schedule(new DebugHelper(node),0,TimeUnit.SECONDS);

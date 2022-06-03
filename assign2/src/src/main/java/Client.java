@@ -34,7 +34,7 @@ public class Client {
             else addr = node_ap;
 
             Registry registry = LocateRegistry.getRegistry(addr);
-            Functions node = (Functions) registry.lookup(service_name == null ? Constants.REG_FUNC_VAL : service_name);
+            NodeInterface node = (NodeInterface) registry.lookup(service_name == null ? Constants.REG_FUNC_VAL : service_name);
 
             switch (operation) {
                 case "put" -> {
