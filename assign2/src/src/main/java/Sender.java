@@ -28,10 +28,10 @@ public class Sender {
         InetSocketAddress dest = new InetSocketAddress(mcastaddr, node.IP_mcast_port);
         Message message = new Message();
         Map<String, String> map = new HashMap<>();
-        map.put("action", Constants.JOIN);
-        map.put("id", node.id);
-        map.put("counter", valueOf(node.counter));
-        map.put("address", node.localAddress);
+        map.put(Constants.ACTION, Constants.JOIN);
+        map.put(Constants.ID, node.id);
+        map.put(Constants.COUNTER, valueOf(node.counter));
+        map.put(Constants.ADDRESS, node.localAddress);
         map.put(Constants.MEMBERSHIP_PORT, valueOf(node.membershipPort));
         map.put(Constants.PORT, valueOf(node.port));
 
@@ -75,7 +75,7 @@ public class Sender {
 
         Message message = new Message();
         Map<String, String> map = new HashMap<>();
-        map.put("action", Constants.LOG);
+        map.put(Constants.ACTION, Constants.LOG);
         int i = 0;
         for(String key : node.membershipLog.keySet()){
             map.put(key, node.membershipLog.get(key).toString());
@@ -100,7 +100,7 @@ public class Sender {
         socketChannel.connect(address);
         Message message = new Message();
         Map<String, String> map = new HashMap<>();
-        map.put("action", Constants.PUT);
+        map.put(Constants.ACTION, Constants.PUT);
         map.put(Constants.KEY, key);
         map.put(Constants.BODY, new String(bs));
         byte[] buf = message.assembleMsg(map).getBytes();
@@ -116,7 +116,7 @@ public class Sender {
         socketChannel.connect(address);
         Message message = new Message();
         Map<String, String> map = new HashMap<>();
-        map.put("action", Constants.DELETE);
+        map.put(Constants.ACTION, Constants.DELETE);
         map.put(Constants.KEY, key);
         byte[] buf = message.assembleMsg(map).getBytes();
         socketChannel.write(ByteBuffer.wrap(buf));
@@ -131,7 +131,7 @@ public class Sender {
 
         Message message = new Message();
         Map<String, String> map = new HashMap<>();
-        map.put("action", Constants.MEMBERSHIP);
+        map.put(Constants.ACTION, Constants.MEMBERSHIP);
         for(String key : node.members){
             MemberInfo memberInfo = node.memberInfo.get(key);
             if(memberInfo != null)  map.put(key, memberInfo.address + ":" + memberInfo.membershipPort+ ":" + memberInfo.port);
@@ -141,7 +141,6 @@ public class Sender {
         TimeUnit.MILLISECONDS.sleep((new Random()).nextInt(0,100));
         socketChannel.write(ByteBuffer.wrap(buf));
         socketChannel.close();
-        if (Constants.DEBUG) System.out.println("Sent Membership to " + address.toString());
         return "";
     }
 

@@ -83,12 +83,15 @@ public class StorageNode implements Functions, Remote {
             StorageNode node = new StorageNode(args[0], args[1], args[2]);
 
             System.out.printf("""
-                            [Main] Node initialized with: Multicast Address=%s
+                            Node initialized with: 
+                            Identifier=%s
+                            Multicast Address=%s
                             Multicast Port=%d
                             Address=%s
-                            Identifier=%s
+                            Membership Port=%d
+                            Generic Unicast Port=%d
                             """,
-                    node.IP_mcast_addr, node.IP_mcast_port, node.localAddress, node.id.substring(0,6));
+                    node.id.substring(0,6), node.IP_mcast_addr, node.IP_mcast_port, node.localAddress, node.membershipPort, node.port);
 
 
             Functions functionsStub = (Functions) UnicastRemoteObject.exportObject(node,0);
@@ -157,7 +160,7 @@ public class StorageNode implements Functions, Remote {
         NetworkInterface netIf = NetworkInterface.getByName(Constants.INTERFACE);
         socket.joinGroup(group, netIf);
 
-        System.out.println("Started listening to mcast");
+        System.out.println("Started to listen for multicast messages");
         while (inGroup) {
             DatagramPacket packet = new DatagramPacket(buf, buf.length);
             socket.receive(packet);
@@ -165,7 +168,7 @@ public class StorageNode implements Functions, Remote {
             ses.schedule(() -> processor.process(msg, null),0,TimeUnit.SECONDS);
             if ("end".equals(msg)) break;
         }
-        System.out.println("Stopped listening");
+        System.out.println("Stopped listening to multicast");
         socket.leaveGroup(group,netIf);
         socket.close();
         return "";
@@ -175,7 +178,7 @@ public class StorageNode implements Functions, Remote {
     public String membershipListener() throws IOException {
         ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
         serverSocketChannel.socket().bind(new InetSocketAddress(localAddress,membershipPort));
-        if(Constants.DEBUG) System.out.println("Starting to listen for membership messages on " + serverSocketChannel.getLocalAddress());
+        System.out.println("Starting to listen for membership messages");
         while (receivedMembership < Constants.MIN_RECEIVED_MEMBERSHIP){
             SocketChannel sc = serverSocketChannel.accept();
             ses.submit(()->{
@@ -199,9 +202,8 @@ public class StorageNode implements Functions, Remote {
     public String mainListener() throws IOException {
         ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
         serverSocketChannel.socket().bind(new InetSocketAddress(localAddress,port));
-        if(Constants.DEBUG) System.out.println("Starting to listen for messages on " + serverSocketChannel.getLocalAddress());
+        System.out.println("Starting to listen for generic unicast messages");
         while (inGroup){
-            System.out.println("Accepting connections on " + serverSocketChannel.getLocalAddress());
             SocketChannel sc = serverSocketChannel.accept();
             String msg;
             ByteBuffer bb = ByteBuffer.allocate(1000);
@@ -213,6 +215,7 @@ public class StorageNode implements Functions, Remote {
                 throw new RuntimeException(e);
             }
         }
+        System.out.println("Stopped listening for generic unicast messages");
         return "";
     }
 
@@ -245,7 +248,7 @@ public class StorageNode implements Functions, Remote {
 
 
     public String leaveCall(){
-        System.out.println("Leaving");
+        System.out.println("Leaving cluster");
 
         ses.submit(() -> addMembershipEntry(id,++counter));
         ses.submit(() -> memberInfo.remove(id));
@@ -326,7 +329,7 @@ public class StorageNode implements Functions, Remote {
 
         Message message = new Message();
         Map<String, String> map = new HashMap<>();
-        map.put("action", Constants.GET);
+        map.put(Constants.ACTION, Constants.GET);
         map.put(Constants.KEY, key);
 
         byte[] buf = message.assembleMsg(map).getBytes();
@@ -348,7 +351,7 @@ public class StorageNode implements Functions, Remote {
     }
 
     public String redistributeValues() {
-        System.out.println("Redistributing...");
+        System.out.println("Redistributing values...");
         keyPathMap.forEach((k,v)->{
             if(!getResponsibleNode(k).equals(id)) {
                 try {
@@ -412,7 +415,7 @@ public class StorageNode implements Functions, Remote {
     }
 
     public void showKeys(){
-        System.out.println("\nKeys:");
+        System.out.println("\nKeys");
         this.keyPathMap.forEach((k,v)-> System.out.println("key: "+ k + "\tpath: " + v));
     }
 
