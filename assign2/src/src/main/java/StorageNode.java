@@ -107,7 +107,7 @@ public class StorageNode implements NodeInterface, Remote {
 
 
             NodeInterface nodeInterfaceStub = (NodeInterface) UnicastRemoteObject.exportObject(node,0);
-            Registry registry = LocateRegistry.getRegistry(node.localAddress);
+            Registry registry = LocateRegistry.getRegistry();
             registry.rebind(node.localAddress, nodeInterfaceStub);
             if(Constants.DEBUG)
                 node.ses.schedule(new DebugHelper(node),0,TimeUnit.SECONDS);
