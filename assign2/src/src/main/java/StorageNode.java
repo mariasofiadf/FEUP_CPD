@@ -10,6 +10,7 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 import java.security.NoSuchAlgorithmException;
+import java.sql.Time;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -266,6 +267,27 @@ public class StorageNode implements NodeInterface, Remote {
         return "Left cluster";
     }
 
+    public String sendToReplicators(String key, byte[] bs){
+        String nodeId = getResponsibleNode(key);
+        ArrayList<String> replicators = getReplicatorNodes(key);
+        replicators.add(nodeId);
+        replicators = new ArrayList<>(new HashSet<>(replicators));
+
+        System.out.println("Sending key "+key+" to replicators");
+        for(String replicator : replicators){
+            try {
+                sender.sendPut(replicator,key,bs);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        if(replicators.size()<3){
+            System.out.println("Not enough replicators. Will try again in 10 seconds...");
+            ses.schedule(()->sendToReplicators(key,bs),10, TimeUnit.SECONDS);
+        }
+        else System.out.println("Key "+key+" replicated 3 times!");
+        return "";
+    }
 
     public String putCall(String key, byte[] bs){
         String nodeId = getResponsibleNode(key);
@@ -279,9 +301,8 @@ public class StorageNode implements NodeInterface, Remote {
             ses.submit(()->sender.sendPut(nodeId, key, bs));
             System.out.println("Not my key ("+key+")... redirecting it to " + nodeId.substring(0,6));
         }
-        for(String replicator : replicators){
-            if(!Objects.equals(replicator, nodeId))ses.submit(()-> sender.sendPut(replicator,key,bs));
-        }
+        sendToReplicators(key,bs);
+
         return "Put " + key;
     }
 
