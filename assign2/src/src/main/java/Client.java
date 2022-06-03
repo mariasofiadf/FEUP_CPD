@@ -1,7 +1,10 @@
 import java.rmi.registry.Registry;
 import java.rmi.registry.LocateRegistry;
+import java.io.FileOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.io.FileWriter;
+
 
 public class Client {
     
@@ -45,7 +48,10 @@ public class Client {
                 case "get" -> {
                     //opnd here is a key
                     str = node.get(key);
-                    System.out.println("File " + opnd + ": \n" + str);
+                    FileWriter output = new FileWriter("output.txt");
+                    output.write(str);
+                    output.close();
+                    System.out.println("Saved file in output.txt!");
                 }
                 case "delete" -> {
                     str = node.delete(key);
