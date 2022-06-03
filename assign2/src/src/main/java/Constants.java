@@ -1,6 +1,6 @@
 public final class Constants {
 
-
+    public static final Integer BUFFER_CAPACITY = 1000000;
     public static final String LOG = "LOG";
     public static final String ADDRESS = "ADDRESS";
     public static final String PORT = "PORT";
