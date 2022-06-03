@@ -465,7 +465,7 @@ public class StorageNode implements NodeInterface, Remote {
 
     public void showKeys(){
         System.out.println("\nKeys");
-        this.keyPathMap.forEach((k,v)-> System.out.println("key: "+ k + "\tpath: " + v));
+        this.keyPathMap.forEach((k,v)-> System.out.println("key: "+ k.substring(0,6)));
     }
 
 
