@@ -23,11 +23,12 @@ public class Client {
             operation = args[1];
             String key ="";
             String str;
+            String opndKey = "";
             int port = 0;
             if(args.length == 3){
                 opnd = args[2];
                 String delimiter = System.getProperty("file.separator");
-                String opndKey = opnd;
+                 opndKey = opnd;
                 if(opnd.lastIndexOf(delimiter)!=-1){
                     opndKey = opnd.substring(opnd.lastIndexOf(delimiter)+1, opnd.length());
                 }
@@ -55,10 +56,10 @@ public class Client {
                 case "get" -> {
                     //opnd here is a key
                     str = node.get(key);
-                    FileWriter output = new FileWriter("output.txt");
+                    FileWriter output = new FileWriter(opndKey);
                     output.write(str);
                     output.close();
-                    System.out.println("Saved file in output.txt!");
+                    System.out.println("Saved file in "+opndKey+"!");
                 }
                 case "delete" -> {
                     str = node.delete(key);
