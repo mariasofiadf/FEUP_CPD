@@ -21,7 +21,7 @@ public class Sender {
 
     public String sendJoin() throws IOException {
         DatagramSocket socket = new DatagramSocket(new InetSocketAddress(0));
-        NetworkInterface outgoingIf = NetworkInterface.getByName(Constants.INTERFACE);
+        NetworkInterface outgoingIf = NetworkInterface.getByName(node.networkInterface);
         socket.setOption(StandardSocketOptions.IP_MULTICAST_IF, outgoingIf);
 
         InetAddress mcastaddr = InetAddress.getByName(node.IP_mcast_addr);
@@ -67,7 +67,7 @@ public class Sender {
 
     public String sendLog() throws IOException {
         DatagramSocket socket = new DatagramSocket(new InetSocketAddress(0));
-        NetworkInterface outgoingIf = NetworkInterface.getByName(Constants.INTERFACE);
+        NetworkInterface outgoingIf = NetworkInterface.getByName(node.networkInterface);
         socket.setOption(StandardSocketOptions.IP_MULTICAST_IF, outgoingIf);
 
         InetAddress mcastaddr = InetAddress.getByName(node.IP_mcast_addr);

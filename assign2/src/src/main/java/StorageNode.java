@@ -168,7 +168,7 @@ public class StorageNode implements NodeInterface, Remote {
         String addr = IP_mcast_addr;
         InetAddress mcastaddr = InetAddress.getByName(addr);
         InetSocketAddress group = new InetSocketAddress(mcastaddr, 0);
-        NetworkInterface netIf = NetworkInterface.getByName(Constants.INTERFACE);
+        NetworkInterface netIf = NetworkInterface.getByName(this.networkInterface);
         socket.joinGroup(group, netIf);
 
         System.out.println("Started to listen for multicast messages");

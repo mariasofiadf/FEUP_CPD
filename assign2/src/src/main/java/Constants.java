@@ -1,6 +1,6 @@
 public final class Constants {
 
-    public static final String INTERFACE = "wlp1s0";
+
     public static final String LOG = "LOG";
     public static final String ADDRESS = "ADDRESS";
     public static final String PORT = "PORT";
