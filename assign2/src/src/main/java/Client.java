@@ -2,6 +2,7 @@ import java.rmi.registry.Registry;
 import java.rmi.registry.LocateRegistry;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Arrays;
 
 public class Client {
     
@@ -19,6 +20,7 @@ public class Client {
             operation = args[1];
             String key ="";
             String str;
+            int port = 0;
             if(args.length == 3){
                 opnd = args[2];
                 key = new Hash().hash(opnd);
@@ -29,12 +31,12 @@ public class Client {
             if(node_ap.contains(":")){
                 String[] ss = node_ap.split(":");
                 addr = ss[0];
-                service_name = ss[1];
+                port = Integer.parseInt(ss[1]);
             }
             else addr = node_ap;
 
             Registry registry = LocateRegistry.getRegistry(addr);
-            NodeInterface node = (NodeInterface) registry.lookup(service_name == null ? Constants.REG_FUNC_VAL : service_name);
+            NodeInterface node = (NodeInterface) registry.lookup(addr);
 
             switch (operation) {
                 case "put" -> {
